@@ -1,8 +1,8 @@
 public static class Extensions
 {
-    public static IResourceBuilder<ContainerResource> AddDataApiBuilderInternal(this IDistributedApplicationBuilder builder, string name, string path)
+    public static IResourceBuilder<ContainerResource> AddDataApiBuilderInternal(this IDistributedApplicationBuilder builder, string name, string configPath)
     {
-        var config = new FileInfo(path);
+        var config = new FileInfo(configPath);
 
         return builder
         .AddContainer(name, "azure-databases/data-api-builder")
