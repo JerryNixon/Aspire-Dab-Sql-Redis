@@ -1,0 +1,45 @@
+﻿@page
+@model Web.Pages.IndexModel
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Actors</title>
+</head>
+<body>
+    <h1>Actors</h1>
+    
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="error">@Model.ErrorMessage</div>
+    }
+    else if (Model.Actors.Any())
+    {
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Birth Year</th>
+                    <th>Age</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var actor in Model.Actors)
+                {
+                    <tr>
+                        <td>@actor.Id</td>
+                        <td>@actor.Name</td>
+                        <td>@actor.BirthYear</td>
+                        <td>@actor.Age</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+    else
+    {
+        <p>No actors found.</p>
+    }
+</body>
+</html>
