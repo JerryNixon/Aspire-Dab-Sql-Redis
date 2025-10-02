@@ -9,10 +9,4 @@
     <AssemblyName>Database</AssemblyName>
     <ProjectGuid>{5A3116BB-8E25-3451-B02C-292C88DF903F}</ProjectGuid>
   </PropertyGroup>
-  <ItemGroup>
-    <Build Remove="PostDeployment.Seeding.sql" />
-  </ItemGroup>
-  <ItemGroup>
-    <PostDeploy Include="PostDeployment.Seeding.sql" />
-  </ItemGroup>
 </Project>

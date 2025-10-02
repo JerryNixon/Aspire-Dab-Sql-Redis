@@ -12,7 +12,7 @@ var sqlproj = builder
 
 var api = builder
     .AddDataApiBuilderInternal(name: "dab",
-        configPath: "./api/dab-config.json")
+        configPath: "../api/dab-config.json")
     .WaitForCompletion(sqlproj)
     .WithReference(sql);
 

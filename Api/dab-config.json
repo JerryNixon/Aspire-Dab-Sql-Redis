@@ -23,6 +23,41 @@
     }
   },
   "entities": {
+    "Todo": {
+      "source": {
+        "object": "dbo.Todo",
+        "type": "table",
+        "key-fields": [
+          "Id"
+        ]
+      },
+      "graphql": {
+        "enabled": true,
+        "type": {
+          "singular": "Todo",
+          "plural": "Todos"
+        }
+      },
+      "rest": {
+        "enabled": true,
+        "path": "/Todo"
+      },
+      "permissions": [
+        {
+          "role": "anonymous",
+          "actions": [
+            {
+              "action": "*"
+            }
+          ]
+        }
+      ],
+      "mappings": {
+        "Id": "Id",
+        "Title": "Title",
+        "IsCompleted": "IsCompleted"
+      }
+    },
     "Actor": {
       "source": {
         "object": "dbo.Actor",
