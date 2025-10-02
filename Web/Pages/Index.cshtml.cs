@@ -32,11 +32,14 @@ public class IndexModel : PageModel
         try
         {
             var allTodos = await TodoRepository.GetDataAsync(new());
+            Todos = allTodos;
+
+            // Only show "No todos found" if there's no other error message and truly no todos
             if (allTodos.Length == 0 && string.IsNullOrEmpty(ErrorMessage))
             {
-                ErrorMessage = "No todos found.";
+                // Don't set an error message for empty list - it's not really an error
+                // ErrorMessage = "No todos found.";
             }
-            Todos = allTodos;
         }
         catch (Exception ex)
         {
@@ -47,7 +50,7 @@ public class IndexModel : PageModel
         }
     }
 
-    public async Task<IActionResult> OnPostAsync(string action, int? id, string? title, bool? isCompleted)
+    public async Task<IActionResult> OnPostAsync(string action, int? id, string? title)
     {
         try
         {
@@ -57,9 +60,9 @@ public class IndexModel : PageModel
                     ? throw new ArgumentNullException(nameof(title), "Title cannot be empty.")
                     : TodoRepository.AddAsync(title, new()),
 
-                "Toggle" => (!id.HasValue || string.IsNullOrWhiteSpace(title) || !isCompleted.HasValue)
-                    ? throw new ArgumentNullException("ID, title, and completion status are required for toggle.")
-                    : TodoRepository.ToggleCompletedAsync(id.Value, title, isCompleted.Value, new()),
+                "Toggle" => !id.HasValue
+                    ? throw new ArgumentNullException(nameof(id))
+                    : TodoRepository.UpdateAsync(Todos.Select(x => x.Id == id ? x with { IsCompleted = !x.IsCompleted } : x).Single(x => x.Id == id), new()),
 
                 "Delete" => !id.HasValue
                     ? throw new ArgumentNullException(nameof(id))
@@ -99,14 +102,11 @@ public static class TodoRepository
             : throw new Exception($"Data API Builder service is not available at [{apiPath}].");
     }
 
-    public static async Task ToggleCompletedAsync(int id, string title, bool currentIsCompleted, CancellationToken token)
+    public static async Task UpdateAsync(Todo todo, CancellationToken token)
     {
         var apiRepository = await BuildRepositoryAsync();
-        
-        // Create todo with toggled status - no database lookup needed!
-        var updatedTodo = new Todo { Id = id, Title = title, IsCompleted = !currentIsCompleted };
-        
-        var updateResult = await apiRepository.PutAsync(updatedTodo, cancellationToken: token);
+
+        var updateResult = await apiRepository.PutAsync(todo, cancellationToken: token);
         if (!updateResult.Success)
             throw new Exception($"Failed to update: {updateResult.Error?.Message ?? "Unknown error"}");
     }

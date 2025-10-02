@@ -68,8 +68,6 @@
                                 @Html.AntiForgeryToken()
                                 <input type="hidden" name="action" value="Toggle" />
                                 <input type="hidden" name="id" value="@todo.Id" />
-                                <input type="hidden" name="title" value="@todo.Title" />
-                                <input type="hidden" name="isCompleted" value="@todo.IsCompleted.ToString().ToLower()" />
                                 <button type="submit" class="btn-complete">✓ Complete</button>
                             </form>
                             <form method="post" style="display:inline;">
@@ -114,8 +112,6 @@
                                 @Html.AntiForgeryToken()
                                 <input type="hidden" name="action" value="Toggle" />
                                 <input type="hidden" name="id" value="@todo.Id" />
-                                <input type="hidden" name="title" value="@todo.Title" />
-                                <input type="hidden" name="isCompleted" value="@todo.IsCompleted.ToString().ToLower()" />
                                 <button type="submit" class="btn-pending">↺ Mark Pending</button>
                             </form>
                             <form method="post" style="display:inline;">
