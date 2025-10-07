@@ -5,130 +5,116 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Todo List</title>
-    <style>
-        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
-        h1 { color: #333; }
-        h2 { color: #666; border-bottom: 2px solid #eee; padding-bottom: 5px; }
-        .error { background: #ffe6e6; color: #d00; padding: 10px; border: 1px solid #ffb3b3; border-radius: 4px; margin-bottom: 20px; }
-        .add-form { background: #f9f9f9; padding: 15px; border-radius: 4px; margin-bottom: 30px; }
-        .add-form input[type="text"] { padding: 8px; width: 300px; border: 1px solid #ddd; border-radius: 4px; }
-        .add-form button { padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; margin-left: 10px; }
-        .add-form button:hover { background: #0056b3; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
-        th { background: #f8f9fa; font-weight: bold; }
-        .completed-row { text-decoration: line-through; color: #888; }
-        button { padding: 4px 8px; margin: 0 2px; border: none; border-radius: 3px; cursor: pointer; font-size: 12px; }
-        .btn-complete { background: #28a745; color: white; }
-        .btn-pending { background: #ffc107; color: black; }
-        .btn-delete { background: #dc3545; color: white; }
-        button:hover { opacity: 0.8; }
-    </style>
+    <title>Tasks</title>
+    <link rel="stylesheet" href="/css/index.css" />
 </head>
 <body>
-    <h1>📝 Todo List</h1>
-    
     @if (!string.IsNullOrEmpty(Model.ErrorMessage))
     {
         <div class="error">@Model.ErrorMessage</div>
     }
 
-    <div class="add-form">
-        <form method="post" style="display: inline;">
-            @Html.AntiForgeryToken()
-            <input type="hidden" name="action" value="Create" />
-            <input type="text" name="title" placeholder="Enter new todo..." required />
-            <button type="submit">Add Todo</button>
-        </form>
+    <div class="container-card">
+        <header class="page-header">
+            <div>
+                <h1>Tasks</h1>
+            </div>
+            
+        </header>
+
+        <div class="add-form">
+            <form method="post" style="display:flex;flex:1;gap:12px;align-items:center">
+                @Html.AntiForgeryToken()
+                <input class="input" type="text" name="title" placeholder="Add a new task..." required autofocus />
+            </form>
+        </div>
+
+        <h2 style="font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin:8px 0 10px 0">Pending (@Model.PendingTodos.Length)</h2>
+        @if (Model.PendingTodos.Any())
+        {
+            <div class="list">
+                @foreach (var todo in Model.PendingTodos)
+                {
+                    <div class="item">
+                        <div class="left">
+                            <div class="avatar">T</div>
+                            <div style="min-width:0">
+                                @if (Model.EditingId == todo.Id)
+                                {
+                                    <form method="post" style="display:inline-block">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="id" value="@todo.Id" />
+                                        <input type="text" name="title" value="@todo.Title" required class="edit-input" autofocus />
+                                    </form>
+                                }
+                                else
+                                {
+                                    <div class="title">@todo.Title</div>
+                                    <div class="muted">#@todo.Id</div>
+                                }
+                            </div>
+                        </div>
+
+                        <div class="actions">
+                            <form method="post" style="display:inline-flex;gap:8px;align-items:center">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@todo.Id" />
+                                <input type="hidden" name="title" value="@todo.Title" />
+                                <input type="hidden" name="isCompleted" value="@(todo.IsCompleted.ToString().ToLower())" />
+                                @if (Model.EditingId == todo.Id)
+                                {
+                                    <button type="submit" name="action" value="Update" class="icon-btn primary" title="Save" aria-label="Save">✓</button>
+                                    <button type="submit" name="action" value="CancelEdit" class="icon-btn danger" title="Cancel" aria-label="Cancel">✖</button>
+                                }
+                                else
+                                {
+                                    <button type="submit" name="action" value="Edit" class="icon-btn warn" title="Edit" aria-label="Edit">✏️</button>
+                                    <button type="submit" name="action" value="Toggle" class="icon-btn primary" title="Complete" aria-label="Complete">✓</button>
+                                    <button type="submit" name="action" value="Delete" class="icon-btn danger" title="Delete" aria-label="Delete" onclick="return confirm('Delete this task?')">🗑️</button>
+                                }
+                            </form>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <p><em>No tasks yet. Add one above!</em></p>
+        }
+
+        <h2 style="font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin:22px 0 10px 0">Completed (@Model.CompletedTodos.Length)</h2>
+        @if (Model.CompletedTodos.Any())
+        {
+            <div class="list">
+                @foreach (var todo in Model.CompletedTodos)
+                {
+                    <div class="item">
+                        <div class="left">
+                            <div class="avatar done">✓</div>
+                            <div>
+                                <div class="title completed">@todo.Title</div>
+                                <div class="muted">#@todo.Id</div>
+                            </div>
+                        </div>
+                        <div class="actions">
+                            <form method="post" style="display:inline-flex;gap:8px;align-items:center">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@todo.Id" />
+                                <input type="hidden" name="title" value="@todo.Title" />
+                                <input type="hidden" name="isCompleted" value="@(todo.IsCompleted.ToString().ToLower())" />
+                                <button type="submit" name="action" value="Toggle" class="icon-btn warn" title="Reopen" aria-label="Reopen">↺</button>
+                                <button type="submit" name="action" value="Delete" class="icon-btn danger" title="Delete" aria-label="Delete" onclick="return confirm('Delete this task?')">🗑️</button>
+                            </form>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <p><em>Nothing completed yet.</em></p>
+        }
     </div>
-
-    <h2>📋 Pending Todos (@Model.Todos.Count(t => !t.IsCompleted))</h2>
-    @{
-        var pendingTodos = Model.Todos.Where(t => !t.IsCompleted).ToArray();
-    }
-    @if (pendingTodos.Any())
-    {
-        <table>
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Title</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var todo in pendingTodos)
-                {
-                    <tr>
-                        <td>@todo.Id</td>
-                        <td>@todo.Title</td>
-                        <td>
-                            <form method="post" style="display:inline;">
-                                @Html.AntiForgeryToken()
-                                <input type="hidden" name="action" value="Toggle" />
-                                <input type="hidden" name="id" value="@todo.Id" />
-                                <button type="submit" class="btn-complete">✓ Complete</button>
-                            </form>
-                            <form method="post" style="display:inline;">
-                                @Html.AntiForgeryToken()
-                                <input type="hidden" name="action" value="Delete" />
-                                <input type="hidden" name="id" value="@todo.Id" />
-                                <button type="submit" class="btn-delete" onclick="return confirm('Delete @todo.Title?')">🗑️ Delete</button>
-                            </form>
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    }
-    else
-    {
-        <p><em>No pending todos. Great job! 🎉</em></p>
-    }
-
-    <h2>✅ Completed Todos (@Model.Todos.Count(t => t.IsCompleted))</h2>
-    @{
-        var completedTodos = Model.Todos.Where(t => t.IsCompleted).ToArray();
-    }
-    @if (completedTodos.Any())
-    {
-        <table>
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Title</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var todo in completedTodos)
-                {
-                    <tr class="completed-row">
-                        <td>@todo.Id</td>
-                        <td>@todo.Title</td>
-                        <td>
-                            <form method="post" style="display:inline;">
-                                @Html.AntiForgeryToken()
-                                <input type="hidden" name="action" value="Toggle" />
-                                <input type="hidden" name="id" value="@todo.Id" />
-                                <button type="submit" class="btn-pending">↺ Mark Pending</button>
-                            </form>
-                            <form method="post" style="display:inline;">
-                                @Html.AntiForgeryToken()
-                                <input type="hidden" name="action" value="Delete" />
-                                <input type="hidden" name="id" value="@todo.Id" />
-                                <button type="submit" class="btn-delete" onclick="return confirm('Delete @todo.Title?')">🗑️ Delete</button>
-                            </form>
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    }
-    else
-    {
-        <p><em>No completed todos.</em></p>
-    }
 </body>
 </html>

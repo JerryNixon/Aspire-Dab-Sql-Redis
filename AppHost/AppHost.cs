@@ -6,6 +6,10 @@ var sql = builder
         port: 1234,
         database: "db");
 
+var redis = builder
+    .AddRedis("redis")
+    .WithRedisCommander();
+
 var sqlproj = builder
     .AddSqlProject<Projects.Database>(name: "sqlproj")
     .WithReference(sql);
@@ -14,6 +18,7 @@ var api = builder
     .AddDataApiBuilderInternal(name: "dab",
         configPath: "../api/dab-config.json")
     .WaitForCompletion(sqlproj)
+    .WithReference(redis)
     .WithReference(sql);
 
 builder.AddProject<Projects.Web>(name: "web")
