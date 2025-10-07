@@ -8,13 +8,14 @@ public static class Extensions
         .AddContainer(name, "azure-databases/data-api-builder")
         .WithImageTag("1.6.67")
         .WithImageRegistry("mcr.microsoft.com")
-        // expose redis connection string to the DAB container via environment variable
-        .WithEnvironment("Redis__Connection", "redis:6379")
         .WithHttpEndpoint(
             port: null,
             targetPort: 5000,
             name: "http")
-        .WithBindMount(config.FullName, $"/App/dab-config.json", true)
+        .WithBindMount(
+            source: config.FullName,
+            target: $"/App/dab-config.json",
+            isReadOnly: true)
         .WithOtlpExporter()
         .WithUrls(e =>
         {
