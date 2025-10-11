@@ -1,0 +1,18 @@
+# SQL Commander specific
+logs/
+sqlcommander.settings.json
+.env
+
+# ASP.NET Core
+bin/
+obj/
+*.user
+*.suo
+*.cache
+*.dll
+*.pdb
+*.exe
+
+# Visual Studio
+.vs/
+.vscode/

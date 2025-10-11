@@ -1,0 +1,1457 @@
+﻿@page
+@model IndexModel
+@{
+    Layout = null;
+    var title = $"sql commander: {Model.ServerName}/{Model.DatabaseName}";
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@title</title>
+    <link rel="stylesheet" href="~/css/site.css" />
+    <style>
+        :root {
+            --bg-primary: #1e1e1e;
+            --bg-secondary: #252526;
+            --bg-tertiary: #2d2d30;
+            --bg-hover: #2a2d2e;
+            --bg-selected: #094771;
+            --border-color: #3e3e42;
+            --text-primary: #d4d4d4;
+            --text-secondary: #858585;
+            --input-bg: #3c3c3c;
+            --button-bg: #0e639c;
+            --button-hover: #1177bb;
+            --button-disabled: #464647;
+            --button-secondary: #464647;
+            --button-secondary-hover: #5a5a5c;
+            --button-danger: #c72e0f;
+            --button-danger-hover: #e03e12;
+            --accent-blue: #569cd6;
+            --accent-cyan: #9cdcfe;
+            --accent-red: #f48771;
+            --error-bg: #3c1f1e;
+            --error-border: #5a1d1d;
+        }
+
+        body.light-theme {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f3f3f3;
+            --bg-tertiary: #e8e8e8;
+            --bg-hover: #e5e5e5;
+            --bg-selected: #cce8ff;
+            --border-color: #d0d0d0;
+            --text-primary: #1e1e1e;
+            --text-secondary: #616161;
+            --input-bg: #ffffff;
+            --button-bg: #0078d4;
+            --button-hover: #106ebe;
+            --button-disabled: #c8c8c8;
+            --button-secondary: #e1e1e1;
+            --button-secondary-hover: #d0d0d0;
+            --button-danger: #d13438;
+            --button-danger-hover: #a52a2e;
+            --accent-blue: #0078d4;
+            --accent-cyan: #0098c7;
+            --accent-red: #d13438;
+            --error-bg: #fde7e9;
+            --error-border: #e81123;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+            flex-direction: column;
+        }
+
+        .main-content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .left-pane {
+            width: 300px;
+            min-width: 200px;
+            max-width: 600px;
+            background: var(--bg-secondary);
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border-color);
+        }
+
+        .vertical-resizer {
+            width: 4px;
+            background: var(--border-color);
+            cursor: col-resize;
+            flex-shrink: 0;
+            transition: background 0.2s;
+        }
+
+        .vertical-resizer:hover {
+            background: var(--accent-blue);
+        }
+
+        .horizontal-resizer {
+            height: 4px;
+            background: var(--border-color);
+            cursor: row-resize;
+            flex-shrink: 0;
+            transition: background 0.2s;
+        }
+
+        .horizontal-resizer:hover {
+            background: var(--accent-blue);
+        }
+
+        .pane-header {
+            padding: 8px 12px;
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border-color);
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .filter-box {
+            padding: 8px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .filter-box input {
+            width: 100%;
+            background: var(--input-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 6px 8px;
+            font-size: 13px;
+            border-radius: 2px;
+        }
+
+        .tree-container {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 8px;
+        }
+
+        .tree-node {
+            padding: 4px 8px;
+            cursor: pointer;
+            user-select: none;
+            font-size: 13px;
+        }
+
+        .tree-node:hover {
+            background: var(--bg-hover);
+        }
+
+        .tree-node.selected > .tree-label {
+            background: var(--bg-selected);
+        }
+
+        .tree-node.collapsed > .tree-children {
+            display: none;
+        }
+
+        .tree-node.expanded > .tree-children {
+            display: block;
+        }
+
+        .tree-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .tree-icon {
+            width: 14px;
+            text-align: center;
+            font-size: 10px;
+            font-family: monospace;
+        }
+
+        .tree-children {
+            margin-left: 10px;
+        }
+
+        .object-actions {
+            display: none;
+            gap: 4px;
+            margin-left: 8px;
+        }
+
+        .tree-node.selected > .tree-label > .object-actions {
+            display: inline-flex;
+        }
+
+        .object-actions button {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 2px 6px;
+            font-size: 10px;
+            cursor: pointer;
+            border-radius: 2px;
+            white-space: nowrap;
+        }
+
+        .object-actions button:hover {
+            background: var(--bg-hover);
+            border-color: var(--accent-blue);
+        }
+
+        .schema-download {
+            padding: 8px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: row;
+            gap: 8px;
+        }
+
+        .schema-download button {
+            flex: 1;
+            background: var(--button-bg);
+            border: none;
+            color: white;
+            padding: 8px;
+            font-size: 13px;
+            cursor: pointer;
+            border-radius: 2px;
+            white-space: nowrap;
+        }
+
+        .schema-download button:hover {
+            background: var(--button-hover);
+        }
+
+        .right-pane {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .editor-container {
+            flex: 2;
+            display: flex;
+            flex-direction: column;
+            min-height: 200px;
+            overflow: hidden;
+        }
+
+        .editor-toolbar {
+            padding: 8px;
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .toolbar-left {
+            display: flex;
+            gap: 8px;
+        }
+
+        .toolbar-right {
+            display: flex;
+            gap: 8px;
+        }
+
+        .editor-toolbar button {
+            background: var(--button-bg);
+            border: none;
+            color: white;
+            padding: 6px 12px;
+            font-size: 13px;
+            cursor: pointer;
+            border-radius: 2px;
+        }
+
+        .editor-toolbar button.execute {
+            background: #0e7d0e;
+        }
+
+        .editor-toolbar button.execute:hover {
+            background: #0f9d0f;
+        }
+
+        .editor-toolbar button:hover {
+            background: var(--button-hover);
+        }
+
+        .editor-toolbar button:disabled {
+            background: var(--button-disabled);
+            cursor: not-allowed;
+        }
+
+        .editor {
+            flex: 1;
+            min-height: 200px;
+        }
+
+        #sqlEditor {
+            width: 100%;
+            height: 100%;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            border: none;
+            padding: 12px;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 14px;
+            resize: none;
+            outline: none;
+        }
+
+        .results-container {
+            flex: 1;
+            min-height: 150px;
+            overflow: auto;
+            padding: 12px;
+            background: var(--bg-primary);
+            border-top: 3px solid var(--accent-blue);
+        }
+
+        .result-set {
+            margin-bottom: 24px;
+        }
+
+        .result-set h3 {
+            font-size: 13px;
+            margin-bottom: 8px;
+            color: var(--accent-blue);
+        }
+
+        .result-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        .result-table th {
+            background: var(--bg-tertiary);
+            padding: 8px;
+            text-align: left;
+            border: 1px solid var(--border-color);
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .result-table td {
+            padding: 8px;
+            border: 1px solid var(--border-color);
+            white-space: nowrap;
+        }
+
+        .result-table tr:hover {
+            background: var(--bg-hover);
+        }
+
+        .status-bar {
+            background: var(--button-bg);
+            color: white;
+            padding: 6px 12px;
+            font-size: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .status-left, .status-right {
+            display: flex;
+            gap: 16px;
+        }
+
+        .status-label {
+            color: #cccccc;
+            font-weight: 500;
+        }
+
+        .status-value {
+            color: #ffffff;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--bg-secondary);
+            padding: 24px;
+            border-radius: 4px;
+            max-width: 500px;
+            width: 90%;
+            border: 1px solid var(--border-color);
+        }
+
+        .modal-header {
+            font-size: 16px;
+            margin-bottom: 16px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 4px;
+            font-size: 13px;
+            color: var(--text-primary);
+        }
+
+        .form-group input {
+            width: 100%;
+            background: var(--input-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 8px;
+            font-size: 13px;
+            border-radius: 2px;
+        }
+
+        .form-group select {
+            background: var(--input-bg);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+
+        .password-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .password-wrapper input {
+            padding-right: 35px;
+        }
+
+        .password-toggle {
+            position: absolute;
+            right: 8px;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 4px;
+            font-size: 14px;
+        }
+
+        .password-toggle:hover {
+            color: var(--text-primary);
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: space-between;
+            margin-top: 24px;
+            align-items: center;
+        }
+
+        .modal-actions-right {
+            display: flex;
+            gap: 8px;
+        }
+
+        .delete-settings-link {
+            color: var(--accent-red);
+            text-decoration: none;
+            font-size: 12px;
+            cursor: pointer;
+            padding: 8px 0;
+        }
+
+        .delete-settings-link:hover {
+            text-decoration: underline;
+        }
+
+        .modal-actions button {
+            background: var(--button-bg);
+            border: none;
+            color: white;
+            padding: 8px 16px;
+            font-size: 13px;
+            cursor: pointer;
+            border-radius: 2px;
+        }
+
+        .modal-actions button:hover {
+            background: var(--button-hover);
+        }
+
+        .modal-actions button.secondary {
+            background: var(--button-secondary);
+        }
+
+        .modal-actions button.secondary:hover {
+            background: var(--button-secondary-hover);
+        }
+
+        .modal-actions button.danger {
+            background: var(--button-danger);
+        }
+
+        .modal-actions button.danger:hover {
+            background: var(--button-danger-hover);
+        }
+
+        .column-item, .param-item {
+            padding: 4px 8px;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+
+        .column-item .type-info, .param-item .type-info {
+            color: var(--text-secondary);
+        }
+
+        .loading {
+            color: var(--accent-blue);
+            font-style: italic;
+            padding: 12px;
+            text-align: center;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @@keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .error {
+            color: var(--accent-red);
+            padding: 12px;
+            background: var(--error-bg);
+            border: 1px solid var(--error-border);
+            border-radius: 2px;
+            margin: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="main-content">
+            <div class="left-pane">
+                <div class="pane-header">Database Explorer</div>
+                <div class="filter-box">
+                    <input type="text" id="filterInput" placeholder="Filter objects..." oninput="app.filterTree(this.value)">
+                </div>
+                <div class="tree-container" id="treeContainer">
+                    <div class="loading">Loading metadata...</div>
+                </div>
+                <div class="schema-download">
+                    <button onclick="app.refreshMetadata()">Refresh Metadata</button>
+                    <button onclick="app.downloadSchema()">Download Schema</button>
+                </div>
+            </div>
+
+            <div class="vertical-resizer" id="verticalResizer"></div>
+
+            <div class="right-pane">
+                <div class="editor-container">
+                    <div class="editor-toolbar">
+                        <div class="toolbar-left">
+                            <button id="executeBtn" class="execute" onclick="app.executeQuery()" title="Execute (Ctrl+E)">▶ Execute</button>
+                            <button id="cancelBtn" onclick="app.cancelQuery()" style="display: none;">⬛ Cancel</button>
+                        </div>
+                        <div class="toolbar-right">
+                            <button onclick="app.showSettings()">Settings</button>
+                        </div>
+                    </div>
+                    <div class="editor">
+                        <textarea id="sqlEditor" placeholder="Enter SQL query..."></textarea>
+                    </div>
+                </div>
+                <div class="horizontal-resizer" id="horizontalResizer"></div>
+                <div class="results-container" id="resultsContainer">
+                    <div style="color: var(--text-secondary); font-size: 13px;">No results to display.</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="status-bar">
+            <div class="status-left">
+                <span><span class="status-value" id="statusConnection">Disconnected</span></span>
+                <span><span class="status-label">Database:</span> <span class="status-value" id="statusDatabase">N/A</span></span>
+                <span><span class="status-label">User:</span> <span class="status-value" id="statusUser">N/A</span></span>
+            </div>
+            <div class="status-right">
+                <span><span class="status-label">Query:</span> <span class="status-value" id="statusQuery">Idle</span></span>
+                <span id="statusTime"></span>
+                <span id="statusRows"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal" id="settingsModal" onclick="app.handleModalClick(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">Settings</div>
+            <div class="form-group">
+                <label>Server</label>
+                <input type="text" id="settingServer" placeholder="localhost">
+            </div>
+            <div class="form-group">
+                <label>Database</label>
+                <input type="text" id="settingDatabase" placeholder="master">
+            </div>
+            <div class="form-group">
+                <label>User ID</label>
+                <input type="text" id="settingUserId" placeholder="sa">
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <div class="password-wrapper">
+                    <input type="password" id="settingPassword">
+                    <button type="button" class="password-toggle" onclick="app.togglePasswordVisibility()">👁️</button>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="settingTrustServerCert" checked style="width: auto; margin-right: 8px;">
+                    Trust Server Certificate
+                </label>
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="settingConfirmActions" style="width: auto; margin-right: 8px;">
+                    Show confirmation dialogs before actions
+                </label>
+            </div>
+            <div class="form-group">
+                <label>Theme</label>
+                <select id="settingTheme" style="width: 100%; padding: 8px; border-radius: 2px;">
+                    <option value="dark">Dark</option>
+                    <option value="light">Light</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Default Result Limit</label>
+                <input type="number" id="settingResultLimit" value="100" min="1">
+            </div>
+            <div class="modal-actions">
+                <button onclick="app.testConnection()">Test Connection</button>
+                <div class="modal-actions-right">
+                    <button class="secondary" onclick="app.hideSettings()">Cancel</button>
+                    <button onclick="app.saveSettings()">Save</button>
+                </div>
+            </div>
+            <div style="margin-top: 12px; text-align: center;">
+                <a href="#" class="delete-settings-link" onclick="app.deleteSettings(); return false;">Delete Settings File</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const app = {
+            metadata: null,
+            queryRunning: false,
+            startTime: null,
+            timerInterval: null,
+            settings: null,
+
+            async init() {
+                await this.loadSettings();
+                await this.loadMetadata();
+                this.setupKeyboardShortcuts();
+                this.setupResizers();
+            },
+
+            async loadSettings() {
+                const response = await fetch('?handler=Settings');
+                const settings = await response.json();
+                this.settings = settings;
+                
+                // Apply theme
+                const theme = settings.theme || 'dark';
+                if (theme === 'light') {
+                    document.body.classList.add('light-theme');
+                } else {
+                    document.body.classList.remove('light-theme');
+                }
+                
+                if (settings.server) {
+                    document.getElementById('statusConnection').textContent = 'Connected';
+                    document.getElementById('statusDatabase').textContent = settings.database;
+                    document.getElementById('statusUser').textContent = settings.userId;
+                    document.title = `sql commander: ${settings.server}/${settings.database}`;
+                }
+            },
+
+            async loadMetadata() {
+                const container = document.getElementById('treeContainer');
+                const refreshBtn = document.querySelector('.schema-download button');
+                
+                // Show loading state
+                container.innerHTML = '<div class="loading">⏳ Loading metadata...</div>';
+                if (refreshBtn) {
+                    refreshBtn.disabled = true;
+                    refreshBtn.textContent = 'Loading...';
+                }
+
+                try {
+                    console.log('Fetching metadata...');
+                    const response = await fetch('?handler=Metadata');
+                    console.log('Response received:', response.status);
+                    const result = await response.json();
+                    console.log('Result parsed:', result);
+
+                    if (!result.success) {
+                        container.innerHTML = `<div class="error">${result.error}</div>`;
+                        return;
+                    }
+
+                    this.metadata = result.data;
+                    console.log('Metadata loaded, rendering tree...');
+                    this.renderTree();
+                    console.log('Tree rendered');
+                } catch (error) {
+                    console.error('Error loading metadata:', error);
+                    container.innerHTML = `<div class="error">Failed to load metadata: ${error.message}</div>`;
+                } finally {
+                    // Restore button state
+                    if (refreshBtn) {
+                        refreshBtn.disabled = false;
+                        refreshBtn.textContent = 'Refresh Metadata';
+                    }
+                }
+            },
+
+            renderTree() {
+                const container = document.getElementById('treeContainer');
+                const data = this.metadata;
+
+                let html = '';
+
+                // Tables
+                if (data.tables && data.tables.length > 0) {
+                    html += this.renderCategory('Tables', data.tables, 'table');
+                }
+
+                // Views
+                if (data.views && data.views.length > 0) {
+                    html += this.renderCategory('Views', data.views, 'view');
+                }
+
+                // Stored Procedures
+                if (data.storedProcedures && data.storedProcedures.length > 0) {
+                    html += this.renderCategory('Stored Procedures', data.storedProcedures, 'proc');
+                }
+
+                container.innerHTML = html || '<div style="color: var(--text-secondary); padding: 12px;">No objects found</div>';
+            },
+
+            renderCategory(title, items, type) {
+                const isTablesCategory = title === 'Tables';
+                const categoryClass = isTablesCategory ? 'expanded' : 'collapsed';
+                const categoryIcon = isTablesCategory ? 'v' : '>';
+                
+                let html = `<div class="tree-node ${categoryClass}" data-type="category">
+                    <div class="tree-label" onclick="app.selectTreeNode(event)">
+                        <span class="tree-icon" onclick="app.toggleNode(event)">${categoryIcon}</span>
+                        <strong>${title}</strong> (${items.length})
+                    </div>
+                    <div class="tree-children">`;
+
+                // Group by schema
+                const bySchema = {};
+                items.forEach(item => {
+                    if (!bySchema[item.schema]) bySchema[item.schema] = [];
+                    bySchema[item.schema].push(item);
+                });
+
+                Object.keys(bySchema).sort().forEach(schema => {
+                    const schemaCount = bySchema[schema].length;
+                    html += `<div class="tree-node collapsed" data-type="schema">
+                        <div class="tree-label" onclick="app.selectTreeNode(event)">
+                            <span class="tree-icon" onclick="app.toggleNode(event)">></span>
+                            <span>${schema} (${schemaCount})</span>
+                        </div>
+                        <div class="tree-children">`;
+
+                    bySchema[schema].sort((a, b) => a.name.localeCompare(b.name)).forEach(item => {
+                        const fullName = `[${item.schema}].[${item.name}]`;
+                        const itemJson = JSON.stringify(item).replace(/"/g, '&quot;');
+                        html += `<div class="tree-node collapsed" data-type="${type}" data-fullname="${fullName}" data-item='${itemJson}'>
+                            <div class="tree-label" onclick="app.selectTreeNode(event)">
+                                <span class="tree-icon" onclick="app.toggleNode(event)">></span>
+                                <span>${item.name}</span>
+                                <span class="object-actions">`;
+                        
+                        if (type === 'proc') {
+                            html += `<button onclick="app.insertExecute('${fullName}', event)">Execute</button>`;
+                        } else {
+                            html += `<button onclick="app.insertTopN('${fullName}', event)">Top N</button>`;
+                        }
+                        html += `<button onclick="app.insertCreate('${fullName}', '${type}', event)">Create</button>
+                                <button onclick="app.insertDrop('${fullName}', '${type}', event)">Drop</button>
+                                </span>
+                            </div>
+                            <div class="tree-children">`;
+
+                        // Columns
+                        if (item.columns && item.columns.length > 0) {
+                            item.columns.forEach(col => {
+                                const nullable = col.isNullable ? 'NULL' : 'NOT NULL';
+                                html += `<div class="column-item">${col.name} <span class="type-info">${col.displayType} ${nullable}</span></div>`;
+                            });
+                        }
+
+                        // Parameters (for stored procedures)
+                        if (item.parameters && item.parameters.length > 0) {
+                            html += '<div style="margin-top: 8px; font-weight: 500;">Parameters:</div>';
+                            item.parameters.forEach(param => {
+                                html += `<div class="param-item">${param.name} <span class="type-info">${param.displayType} (${param.direction})</span></div>`;
+                            });
+                        }
+
+                        // Output columns (for stored procedures)
+                        if (item.outputColumns && item.outputColumns.length > 0) {
+                            html += '<div style="margin-top: 8px; font-weight: 500;">Output Columns:</div>';
+                            item.outputColumns.forEach(col => {
+                                html += `<div class="column-item">${col.name} <span class="type-info">${col.displayType}</span></div>`;
+                            });
+                        }
+
+                        html += `</div></div>`;
+                    });
+
+                    html += `</div></div>`;
+                });
+
+                html += `</div></div>`;
+                return html;
+            },
+
+            toggleNode(event) {
+                event.stopPropagation();
+                const icon = event.target;
+                const node = icon.closest('.tree-node');
+                
+                if (node.classList.contains('collapsed')) {
+                    node.classList.remove('collapsed');
+                    node.classList.add('expanded');
+                    icon.textContent = 'v';
+                } else {
+                    node.classList.remove('expanded');
+                    node.classList.add('collapsed');
+                    icon.textContent = '>';
+                }
+            },
+
+            selectTreeNode(event) {
+                // Don't toggle if clicking on action buttons or chevron
+                if (event.target.tagName === 'BUTTON') return;
+                if (event.target.classList.contains('tree-icon')) return;
+                
+                // Remove selection from all nodes
+                document.querySelectorAll('.tree-node.selected').forEach(n => n.classList.remove('selected'));
+                
+                // Add selection to clicked node
+                const node = event.target.closest('.tree-node');
+                if (node && (node.dataset.type === 'table' || node.dataset.type === 'view' || node.dataset.type === 'proc')) {
+                    node.classList.add('selected');
+                }
+                
+                // Don't auto-expand - only chevron should expand
+            },
+
+            async insertTopN(fullName, event) {
+                event.stopPropagation();
+                if (!this.settings.confirmActions || confirm('This will overwrite the current editor content and execute immediately. Continue?')) {
+                    const settings = await (await fetch('?handler=Settings')).json();
+                    const limit = settings.defaultResultLimit || 100;
+                    document.getElementById('sqlEditor').value = `SELECT TOP ${limit} * FROM ${fullName};`;
+                    // Auto-execute the query
+                    await this.executeQuery();
+                }
+            },
+
+            insertExecute(fullName, event) {
+                event.stopPropagation();
+                if (!this.settings.confirmActions || confirm('This will overwrite the current editor content. Continue?')) {
+                    // Find the stored procedure in metadata
+                    const [schema, name] = fullName.replace(/[\[\]]/g, '').split('.');
+                    const proc = this.metadata.storedProcedures.find(p => p.schema === schema && p.name === name);
+                    
+                    if (!proc) return;
+
+                    let sql = `EXEC ${fullName}`;
+                    if (proc.parameters && proc.parameters.length > 0) {
+                        sql += '\n';
+                        proc.parameters.forEach((param, i) => {
+                            const comma = i < proc.parameters.length - 1 ? ',' : '';
+                            sql += `    ${param.name} = NULL${comma}\n`;
+                        });
+                    }
+                    sql += ';';
+
+                    document.getElementById('sqlEditor').value = sql;
+                }
+            },
+
+            insertCreate(fullName, type, event) {
+                event.stopPropagation();
+                if (!this.settings.confirmActions || confirm('This will overwrite the current editor content. Continue?')) {
+                    // Find the object in metadata
+                    let obj = null;
+                    const [schema, name] = fullName.replace(/[\[\]]/g, '').split('.');
+                    
+                    if (type === 'table') {
+                        obj = this.metadata.tables.find(t => t.schema === schema && t.name === name);
+                    } else if (type === 'view') {
+                        obj = this.metadata.views.find(v => v.schema === schema && v.name === name);
+                    } else if (type === 'proc') {
+                        obj = this.metadata.storedProcedures.find(p => p.schema === schema && p.name === name);
+                    }
+
+                    if (!obj) return;
+
+                    let sql = '';
+                    if (type === 'table') {
+                        sql = `CREATE TABLE ${fullName} (\n`;
+                        obj.columns.forEach((col, i) => {
+                            const comma = i < obj.columns.length - 1 ? ',' : '';
+                            const nullable = col.isNullable ? 'NULL' : 'NOT NULL';
+                            sql += `    [${col.name}] ${col.displayType} ${nullable}${comma}\n`;
+                        });
+                        sql += ');';
+                    } else if (type === 'view') {
+                        sql = `CREATE VIEW ${fullName} AS\n-- View definition not available from metadata\nSELECT `;
+                        obj.columns.forEach((col, i) => {
+                            sql += (i > 0 ? ', ' : '') + col.name;
+                        });
+                        sql += '\nFROM [YourTable];';
+                    } else if (type === 'proc') {
+                        if (obj.definition) {
+                            sql = obj.definition;
+                        } else {
+                            sql = `CREATE PROCEDURE ${fullName}\n`;
+                            if (obj.parameters.length > 0) {
+                                obj.parameters.forEach((param, i) => {
+                                    const comma = i < obj.parameters.length - 1 ? ',' : '';
+                                    sql += `    ${param.name} ${param.displayType}${comma}\n`;
+                                });
+                            }
+                            sql += 'AS\nBEGIN\n    -- Procedure body not available from metadata\n    SELECT 1;\nEND;';
+                        }
+                    }
+
+                    document.getElementById('sqlEditor').value = sql;
+                }
+            },
+
+            insertDrop(fullName, type, event) {
+                event.stopPropagation();
+                if (!this.settings.confirmActions || confirm('This will overwrite the current editor content. Continue?')) {
+                    const objectType = type === 'table' ? 'TABLE' : type === 'view' ? 'VIEW' : 'PROCEDURE';
+                    document.getElementById('sqlEditor').value = `DROP ${objectType} ${fullName};`;
+                }
+            },
+
+            filterTree(term) {
+                term = term.toLowerCase();
+                const shouldFilter = term.length > 0;
+                
+                const objectNodes = document.querySelectorAll('.tree-node[data-type="table"], .tree-node[data-type="view"], .tree-node[data-type="proc"]');
+                const schemaNodes = document.querySelectorAll('.tree-node[data-type="schema"]');
+                const categoryNodes = document.querySelectorAll('.tree-node[data-type="category"]');
+                
+                // Track visible counts per schema and per category
+                const schemaVisibleCounts = new Map();
+                const categoryVisibleCounts = { tables: 0, views: 0, procs: 0 };
+                
+                // Filter object nodes and count visible items per schema and category
+                objectNodes.forEach(node => {
+                    // Get only the object name (not schema or columns) from the tree-label
+                    const treeLabel = node.querySelector('.tree-label');
+                    const objectNameSpan = treeLabel.querySelector('span:nth-child(2)');
+                    const objectName = objectNameSpan ? objectNameSpan.textContent.toLowerCase() : '';
+                    
+                    const isVisible = !shouldFilter || objectName.includes(term);
+                    node.style.display = isVisible ? '' : 'none';
+                    
+                    // Collapse object nodes when filtering
+                    if (shouldFilter && isVisible) {
+                        node.classList.remove('expanded');
+                        node.classList.add('collapsed');
+                    }
+                    
+                    // Find parent schema node
+                    let parent = node.parentElement;
+                    while (parent && !parent.classList.contains('tree-node')) {
+                        parent = parent.parentElement;
+                    }
+                    if (parent && parent.dataset.type === 'schema') {
+                        schemaVisibleCounts.set(parent, (schemaVisibleCounts.get(parent) || 0) + (isVisible ? 1 : 0));
+                    }
+                    
+                    // Count by category type
+                    if (isVisible) {
+                        const nodeType = node.dataset.type;
+                        if (nodeType === 'table') categoryVisibleCounts.tables++;
+                        else if (nodeType === 'view') categoryVisibleCounts.views++;
+                        else if (nodeType === 'proc') categoryVisibleCounts.procs++;
+                    }
+                });
+                
+                // Update schema nodes visibility and counts
+                schemaNodes.forEach(schemaNode => {
+                    const visibleCount = schemaVisibleCounts.get(schemaNode) || 0;
+                    const schemaLabel = schemaNode.querySelector('.tree-label span:nth-child(2)');
+                    const schemaName = schemaLabel.textContent.split(' ')[0];
+                    
+                    if (!shouldFilter) {
+                        // No filter: show all schemas with original counts
+                        schemaNode.style.display = '';
+                        const originalCount = schemaNode.querySelectorAll('.tree-node[data-type="table"], .tree-node[data-type="view"], .tree-node[data-type="proc"]').length;
+                        schemaLabel.textContent = `${schemaName} (${originalCount})`;
+                    } else {
+                        // Filter active: hide schemas with no visible items
+                        if (visibleCount > 0) {
+                            schemaNode.style.display = '';
+                            schemaLabel.textContent = `${schemaName} (${visibleCount})`;
+                            // Auto-expand schema to show filtered results
+                            schemaNode.classList.remove('collapsed');
+                            schemaNode.classList.add('expanded');
+                        } else {
+                            schemaNode.style.display = 'none';
+                        }
+                    }
+                });
+                
+                // Update category counts and visibility
+                categoryNodes.forEach(catNode => {
+                    const title = catNode.querySelector('strong').textContent;
+                    const categoryLabel = catNode.querySelector('strong').parentElement;
+                    
+                    if (shouldFilter) {
+                        // Filter active: update counts to show filtered results
+                        let count = 0;
+                        if (title === 'Tables') count = categoryVisibleCounts.tables;
+                        else if (title === 'Views') count = categoryVisibleCounts.views;
+                        else if (title.includes('Stored Procedures')) count = categoryVisibleCounts.procs;
+                        
+                        categoryLabel.innerHTML = categoryLabel.innerHTML.replace(/\(\d+\)/, `(${count})`);
+                        
+                        // Auto-expand category if it has visible items
+                        if (count > 0) {
+                            catNode.classList.remove('collapsed');
+                            catNode.classList.add('expanded');
+                        }
+                    } else {
+                        // Reset to original counts
+                        let originalCount = 0;
+                        if (title === 'Tables') {
+                            originalCount = document.querySelectorAll('.tree-node[data-type="table"]').length;
+                        } else if (title === 'Views') {
+                            originalCount = document.querySelectorAll('.tree-node[data-type="view"]').length;
+                        } else if (title.includes('Stored Procedures')) {
+                            originalCount = document.querySelectorAll('.tree-node[data-type="proc"]').length;
+                        }
+                        
+                        categoryLabel.innerHTML = categoryLabel.innerHTML.replace(/\(\d+\)/, `(${originalCount})`);
+                        
+                        // Reset to default (Tables expanded, others collapsed)
+                        if (title === 'Tables') {
+                            catNode.classList.remove('collapsed');
+                            catNode.classList.add('expanded');
+                        } else {
+                            catNode.classList.remove('expanded');
+                            catNode.classList.add('collapsed');
+                        }
+                    }
+                });
+                
+                // Collapse all schemas when filter is cleared
+                if (!shouldFilter) {
+                    schemaNodes.forEach(schemaNode => {
+                        schemaNode.classList.remove('expanded');
+                        schemaNode.classList.add('collapsed');
+                    });
+                }
+            },
+
+            async executeQuery() {
+                if (this.queryRunning) return;
+
+                const sql = document.getElementById('sqlEditor').value.trim();
+                if (!sql) return;
+
+                this.queryRunning = true;
+                this.startTime = Date.now();
+                
+                document.getElementById('executeBtn').style.display = 'none';
+                document.getElementById('cancelBtn').style.display = 'inline-block';
+                document.getElementById('statusQuery').textContent = 'Running...';
+                document.getElementById('statusTime').textContent = '';
+                document.getElementById('statusRows').textContent = '';
+                document.getElementById('resultsContainer').innerHTML = '<div class="loading">Executing query...</div>';
+
+                this.timerInterval = setInterval(() => {
+                    const elapsed = Date.now() - this.startTime;
+                    document.getElementById('statusTime').textContent = `${(elapsed / 1000).toFixed(1)}s`;
+                }, 100);
+
+                try {
+                    const response = await fetch('?handler=ExecuteQuery', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ sql })
+                    });
+
+                    if (!response.ok) {
+                        const contentType = response.headers.get('content-type');
+                        const errorText = await response.text();
+                        console.error('Response error details:', {
+                            status: response.status,
+                            statusText: response.statusText,
+                            contentType: contentType,
+                            body: errorText
+                        });
+                        
+                        // Try to parse as JSON for better error messages
+                        let errorMessage = errorText;
+                        try {
+                            const errorJson = JSON.parse(errorText);
+                            if (errorJson.errorMessage) errorMessage = errorJson.errorMessage;
+                            else if (errorJson.error) errorMessage = errorJson.error;
+                        } catch (e) {
+                            // Not JSON, use raw text
+                        }
+                        
+                        throw new Error(`HTTP ${response.status} ${response.statusText}\n\nContent-Type: ${contentType}\n\nResponse Body:\n${errorMessage}`);
+                    }
+
+                    const text = await response.text();
+                    if (!text) {
+                        throw new Error('Empty response from server');
+                    }
+
+                    let result;
+                    try {
+                        result = JSON.parse(text);
+                    } catch (parseError) {
+                        console.error('JSON parse error:', parseError);
+                        console.error('Response text:', text);
+                        throw new Error(`Failed to parse server response as JSON.\n\nParse Error: ${parseError.message}\n\nResponse:\n${text.substring(0, 500)}`);
+                    }
+                    
+                    this.displayResults(result);
+                } catch (error) {
+                    console.error('Execute query error:', error);
+                    this.displayError(error.message);
+                } finally {
+                    this.queryRunning = false;
+                    clearInterval(this.timerInterval);
+                    document.getElementById('executeBtn').style.display = 'inline-block';
+                    document.getElementById('cancelBtn').style.display = 'none';
+                }
+            },
+
+            async cancelQuery() {
+                document.getElementById('statusQuery').textContent = 'Cancelling...';
+                await fetch('?handler=CancelQuery', { method: 'POST' });
+            },
+
+            displayResults(result) {
+                const container = document.getElementById('resultsContainer');
+
+                if (!result.success) {
+                    container.innerHTML = `<div class="error">${result.errorMessage}</div>`;
+                    document.getElementById('statusQuery').textContent = 'Failed';
+                    document.getElementById('statusTime').textContent = `${(result.elapsedMilliseconds / 1000).toFixed(2)}s`;
+                    return;
+                }
+
+                let html = '';
+                
+                if (result.resultSets.length === 0) {
+                    html = '<div style="color: var(--text-secondary); font-size: 13px;">Query executed successfully. No results returned.</div>';
+                } else {
+                    // Display messages first if any
+                    if (result.messages && result.messages.length > 0) {
+                        html += '<div class="info-messages" style="background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 2px; padding: 12px; margin-bottom: 12px; font-family: \'Consolas\', monospace; font-size: 12px;">';
+                        html += '<div style="font-weight: 600; margin-bottom: 8px; color: var(--accent-blue);">Messages:</div>';
+                        result.messages.forEach(msg => {
+                            html += `<div style="margin-bottom: 4px; color: var(--text-primary);">${msg}</div>`;
+                        });
+                        html += '</div>';
+                    }
+                    
+                    result.resultSets.forEach((rs, i) => {
+                        html += `<div class="result-set">`;
+                        if (result.resultSets.length > 1) {
+                            html += `<h3>Result Set ${i + 1} (${rs.rowCount} rows)</h3>`;
+                        }
+                        
+                        html += `<table class="result-table"><thead><tr>`;
+                        rs.columns.forEach(col => {
+                            html += `<th>${col}</th>`;
+                        });
+                        html += `</tr></thead><tbody>`;
+
+                        rs.rows.forEach(row => {
+                            html += '<tr>';
+                            rs.columns.forEach(col => {
+                                const val = row[col];
+                                html += `<td>${val === null ? '<i>NULL</i>' : val}</td>`;
+                            });
+                            html += '</tr>';
+                        });
+
+                        html += `</tbody></table></div>`;
+                    });
+                }
+
+                container.innerHTML = html;
+                
+                document.getElementById('statusQuery').textContent = 'Completed';
+                document.getElementById('statusTime').textContent = `${(result.elapsedMilliseconds / 1000).toFixed(2)}s`;
+                document.getElementById('statusRows').textContent = `${result.totalRowsReturned} rows`;
+                
+                if (result.wasTruncated) {
+                    document.getElementById('statusRows').textContent += ' (truncated)';
+                }
+            },
+
+            displayError(message) {
+                // Make the error message more readable with line breaks preserved
+                const formattedMessage = message.replace(/\\n/g, '<br>').replace(/\n/g, '<br>');
+                document.getElementById('resultsContainer').innerHTML = `<div class="error" style="padding: 16px; white-space: pre-wrap; font-family: 'Consolas', 'Courier New', monospace; font-size: 12px; line-height: 1.6;">${formattedMessage}</div>`;
+                document.getElementById('statusQuery').textContent = 'Failed';
+            },
+
+            showSettings() {
+                fetch('?handler=Settings')
+                    .then(r => r.json())
+                    .then(settings => {
+                        document.getElementById('settingServer').value = settings.server || '';
+                        document.getElementById('settingDatabase').value = settings.database || '';
+                        document.getElementById('settingUserId').value = settings.userId || '';
+                        document.getElementById('settingPassword').value = settings.password || '';
+                        document.getElementById('settingPassword').type = 'password';
+                        document.getElementById('settingTrustServerCert').checked = settings.trustServerCertificate !== false;
+                        document.getElementById('settingConfirmActions').checked = settings.confirmActions === true;
+                        document.getElementById('settingTheme').value = settings.theme || 'dark';
+                        document.getElementById('settingResultLimit').value = settings.defaultResultLimit || 100;
+                        document.getElementById('settingsModal').classList.add('show');
+                    });
+            },
+
+            hideSettings() {
+                document.getElementById('settingsModal').classList.remove('show');
+            },
+
+            handleModalClick(event) {
+                // Close modal when clicking on the backdrop (but not on the modal content)
+                if (event.target.id === 'settingsModal') {
+                    this.hideSettings();
+                }
+            },
+
+            togglePasswordVisibility() {
+                const passwordInput = document.getElementById('settingPassword');
+                passwordInput.type = passwordInput.type === 'password' ? 'text' : 'password';
+            },
+
+            async saveSettings() {
+                const settings = {
+                    server: document.getElementById('settingServer').value,
+                    database: document.getElementById('settingDatabase').value,
+                    userId: document.getElementById('settingUserId').value,
+                    password: document.getElementById('settingPassword').value,
+                    trustServerCertificate: document.getElementById('settingTrustServerCert').checked,
+                    confirmActions: document.getElementById('settingConfirmActions').checked,
+                    theme: document.getElementById('settingTheme').value,
+                    defaultResultLimit: parseInt(document.getElementById('settingResultLimit').value)
+                };
+
+                await fetch('?handler=Settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(settings)
+                });
+
+                this.hideSettings();
+                location.reload();
+            },
+
+            async deleteSettings() {
+                if (!this.settings.confirmActions || confirm('Delete the settings file and refresh the page?')) {
+                    await fetch('?handler=Settings', { method: 'DELETE' });
+                    location.reload();
+                }
+            },
+
+            async testConnection() {
+                const settings = {
+                    server: document.getElementById('settingServer').value,
+                    database: document.getElementById('settingDatabase').value,
+                    userId: document.getElementById('settingUserId').value,
+                    password: document.getElementById('settingPassword').value,
+                    trustServerCertificate: document.getElementById('settingTrustServerCert').checked
+                };
+
+                try {
+                    console.log('Test connection request:', settings);
+                    
+                    const response = await fetch('?handler=TestConnection', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(settings)
+                    });
+
+                    console.log('Test connection response:', {
+                        status: response.status,
+                        statusText: response.statusText,
+                        contentType: response.headers.get('content-type')
+                    });
+
+                    const responseText = await response.text();
+                    console.log('Test connection response body:', responseText);
+
+                    if (!response.ok) {
+                        let errorDetails = `HTTP ${response.status} ${response.statusText}\n\n`;
+                        errorDetails += `Content-Type: ${response.headers.get('content-type') || 'null'}\n\n`;
+                        errorDetails += `Response Body:\n${responseText || '(empty)'}`;
+                        throw new Error(errorDetails);
+                    }
+
+                    const result = JSON.parse(responseText);
+                    
+                    if (result.success) {
+                        alert(`✅ Connection successful!\n\nServer: ${result.serverVersion}\nDatabase: ${result.databaseName}\nUser: ${result.userName}`);
+                    } else {
+                        alert(`❌ Connection failed:\n\n${result.errorMessage}`);
+                    }
+                } catch (error) {
+                    console.error('Test connection error:', error);
+                    alert(`❌ Connection test failed:\n\n${error.message}`);
+                }
+            },
+
+            async refreshMetadata() {
+                await this.loadMetadata();
+            },
+
+            async downloadSchema() {
+                window.location.href = '?handler=DownloadSchema';
+            },
+
+            setupKeyboardShortcuts() {
+                document.addEventListener('keydown', (e) => {
+                    if (e.ctrlKey && e.key === 'e') {
+                        e.preventDefault();
+                        this.executeQuery();
+                    }
+                });
+            },
+
+            setupResizers() {
+                // Vertical resizer (left pane width)
+                const verticalResizer = document.getElementById('verticalResizer');
+                const leftPane = document.querySelector('.left-pane');
+                let isResizingVertical = false;
+
+                verticalResizer.addEventListener('mousedown', (e) => {
+                    isResizingVertical = true;
+                    document.body.style.cursor = 'col-resize';
+                    document.body.style.userSelect = 'none';
+                });
+
+                document.addEventListener('mousemove', (e) => {
+                    if (!isResizingVertical) return;
+                    
+                    const newWidth = e.clientX;
+                    if (newWidth >= 200 && newWidth <= 600) {
+                        leftPane.style.width = newWidth + 'px';
+                    }
+                });
+
+                document.addEventListener('mouseup', () => {
+                    if (isResizingVertical) {
+                        isResizingVertical = false;
+                        document.body.style.cursor = '';
+                        document.body.style.userSelect = '';
+                    }
+                });
+
+                // Horizontal resizer (editor/results split)
+                const horizontalResizer = document.getElementById('horizontalResizer');
+                const editorContainer = document.querySelector('.editor-container');
+                let isResizingHorizontal = false;
+                let startY = 0;
+                let startHeight = 0;
+
+                horizontalResizer.addEventListener('mousedown', (e) => {
+                    isResizingHorizontal = true;
+                    startY = e.clientY;
+                    startHeight = editorContainer.offsetHeight;
+                    document.body.style.cursor = 'row-resize';
+                    document.body.style.userSelect = 'none';
+                });
+
+                document.addEventListener('mousemove', (e) => {
+                    if (!isResizingHorizontal) return;
+                    
+                    const delta = e.clientY - startY;
+                    const newHeight = startHeight + delta;
+                    const minHeight = 200;
+                    const maxHeight = window.innerHeight - 250;
+                    
+                    if (newHeight >= minHeight && newHeight <= maxHeight) {
+                        editorContainer.style.flex = 'none';
+                        editorContainer.style.height = newHeight + 'px';
+                    }
+                });
+
+                document.addEventListener('mouseup', () => {
+                    if (isResizingHorizontal) {
+                        isResizingHorizontal = false;
+                        document.body.style.cursor = '';
+                        document.body.style.userSelect = '';
+                    }
+                });
+            }
+        };
+
+        // Initialize the app
+        app.init();
+    </script>
+</body>
+</html>
+
