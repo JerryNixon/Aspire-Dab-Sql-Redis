@@ -11,7 +11,11 @@ var sqlproj = builder
     .WithReference(sql);
 
 var sqlcmd = builder
-    .AddProject<Projects.SqlCommander>("sqlcmd")
+    .AddProject<Projects.SqlCommander>("sql-commander")
+    .WithUrls(e =>
+    {
+        e.Urls.First().DisplayText = "SQL Commander";
+    })
     .WithParentRelationship(sql)
     .WaitForCompletion(sqlproj)
     .WithReference(sql);
@@ -29,6 +33,6 @@ var api = builder
 
 builder.AddProject<Projects.Web>(name: "web")
     .WithReference(api.GetEndpoint("http"))
-    .WaitFor(sqlproj);
+    .WaitFor(api);
 
 builder.Build().Run();

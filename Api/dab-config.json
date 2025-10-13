@@ -6,7 +6,7 @@
   },
   "runtime": {
     "cache": {
-      "enabled": true,
+      "enabled": false,
       "level-2": {
         "enabled": true,
         "provider": "redis",

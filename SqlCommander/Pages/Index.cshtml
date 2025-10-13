@@ -429,12 +429,12 @@
             border-radius: 4px;
             padding: 20px;
             display: flex;
-            align-items: center;
-            justify-content: center;
+            align-items: flex-start;
+            justify-content: flex-start;
         }
 
         #schemaContainer svg {
-            max-width: 100% !important;
+            max-width: none !important;
             height: auto !important;
         }
         
@@ -448,6 +448,20 @@
             margin-bottom: 16px;
             font-weight: 500;
             color: var(--text-primary);
+        }
+
+        .modal-header button {
+            background: var(--button-secondary);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 4px 8px;
+            font-size: 12px;
+            cursor: pointer;
+            border-radius: 2px;
+        }
+
+        .modal-header button:hover {
+            background: var(--button-secondary-hover);
         }
 
         .form-group {
@@ -707,7 +721,17 @@
     <!-- Schema Modal -->
     <div class="modal" id="schemaModal" onclick="app.handleModalClick(event)">
         <div class="modal-content schema-modal" onclick="event.stopPropagation()">
-            <div class="modal-header">Database Schema</div>
+            <div class="modal-header">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span>Database Schema</span>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <span style="font-size: 12px; color: var(--text-secondary);">Zoom:</span>
+                        <button onclick="app.zoomSchema(0.8)" style="padding: 4px 8px; font-size: 12px;">−</button>
+                        <button onclick="app.zoomSchema(1.25)" style="padding: 4px 8px; font-size: 12px;">+</button>
+                        <button onclick="app.zoomSchema('reset')" style="padding: 4px 8px; font-size: 12px;">Reset</button>
+                    </div>
+                </div>
+            </div>
             <div id="schemaContainer"></div>
             <div class="modal-actions" style="justify-content: flex-end;">
                 <button class="secondary" onclick="app.hideSchema()">Close</button>
@@ -725,6 +749,8 @@
             settings: null,
             editor: null,
             mermaidPromise: null,
+            currentSchemaScale: 1.8,
+            baseSchemaWidth: 800,
 
             async init() {
                 await this.loadSettings();
@@ -1616,12 +1642,19 @@
                     container.innerHTML = svg;
                     bindFunctions?.(container);
                     console.log('Diagram rendered successfully');
-                    
-                    // Add some styling to the SVG
+
                     const svgElement = container.querySelector('svg');
                     if (svgElement) {
-                        svgElement.style.maxWidth = '100%';
+                        // Set a reasonable default scale (50% of natural size)
+                        const originalWidth = parseFloat(svgElement.getAttribute('width') || '800');
+                        this.baseSchemaWidth = originalWidth;
+                        const scaledWidth = originalWidth * this.currentSchemaScale;
+                        
+                        svgElement.style.width = scaledWidth + 'px';
                         svgElement.style.height = 'auto';
+                        svgElement.style.maxWidth = 'none';
+                        
+                        console.log(`Scaled diagram from ${originalWidth}px to ${scaledWidth}px`);
                     }
                 } catch (renderError) {
                     console.error('Mermaid render error:', renderError);
@@ -1637,6 +1670,26 @@
                         </div>
                     `;
                 }
+            },
+
+            zoomSchema(factor) {
+                const container = document.getElementById('schemaContainer');
+                const svgElement = container.querySelector('svg');
+                
+                if (!svgElement) return;
+                
+                if (factor === 'reset') {
+                    this.currentSchemaScale = 1.8;
+                } else {
+                    this.currentSchemaScale *= factor;
+                    // Limit zoom range
+                    this.currentSchemaScale = Math.max(0.1, Math.min(3, this.currentSchemaScale));
+                }
+                
+                const scaledWidth = this.baseSchemaWidth * this.currentSchemaScale;
+                svgElement.style.width = scaledWidth + 'px';
+                
+                console.log(`Zoom adjusted to ${(this.currentSchemaScale * 100).toFixed(0)}%`);
             },
 
             hideSchema() {
