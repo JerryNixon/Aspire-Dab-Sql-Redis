@@ -68,7 +68,46 @@
       "mappings": {
         "Id": "Id",
         "Title": "Title",
-        "IsCompleted": "IsCompleted"
+        "IsCompleted": "IsCompleted",
+        "CategoryId": "CategoryId"
+      }
+    },
+    "Category": {
+      "source": {
+        "object": "dbo.Category",
+        "type": "table",
+        "key-fields": [
+          "Id"
+        ]
+      },
+      "graphql": {
+        "enabled": true,
+        "type": {
+          "singular": "Category",
+          "plural": "Categories"
+        }
+      },
+      "rest": {
+        "enabled": true,
+        "path": "/Category"
+      },
+      "cache": {
+        "enabled": true,
+        "level": "L1L2"
+      },
+      "permissions": [
+        {
+          "role": "anonymous",
+          "actions": [
+            {
+              "action": "*"
+            }
+          ]
+        }
+      ],
+      "mappings": {
+        "Id": "Id",
+        "Name": "Name"
       }
     }
   }

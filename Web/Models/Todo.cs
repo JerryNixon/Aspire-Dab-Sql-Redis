@@ -14,4 +14,7 @@ public record Todo
 
     [JsonPropertyName("IsCompleted")]
     public bool IsCompleted { get; init; }
+
+    [JsonPropertyName("CategoryId")]
+    public int CategoryId { get; init; }
 }

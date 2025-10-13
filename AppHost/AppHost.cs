@@ -6,12 +6,14 @@ var sql = builder
         port: 1234,
         database: "db");
 
-var sqlcmd = builder
-    .AddProject<Projects.SqlCommander>("sqlcmd")
-    .WithReference(sql);
-
 var sqlproj = builder
     .AddSqlProject<Projects.Database>(name: "sqlproj")
+    .WithReference(sql);
+
+var sqlcmd = builder
+    .AddProject<Projects.SqlCommander>("sqlcmd")
+    .WithParentRelationship(sql)
+    .WaitForCompletion(sqlproj)
     .WithReference(sql);
 
 var redis = builder
@@ -25,7 +27,8 @@ var api = builder
     .WithReference(redis)
     .WithReference(sql);
 
-//builder.AddProject<Projects.Web>(name: "web")
-//    .WithReference(api.GetEndpoint("http"));
+builder.AddProject<Projects.Web>(name: "web")
+    .WithReference(api.GetEndpoint("http"))
+    .WaitFor(sqlproj);
 
 builder.Build().Run();

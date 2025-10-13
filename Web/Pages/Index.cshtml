@@ -23,9 +23,16 @@
         </header>
 
         <div class="add-form">
-            <form method="post" style="display:flex;flex:1;gap:12px;align-items:center">
+            <form method="post" class="add-form-content">
                 @Html.AntiForgeryToken()
                 <input class="input" type="text" name="title" placeholder="Add a new task..." required autofocus />
+                <select class="select" name="categoryId" aria-label="Category">
+                    @foreach (var category in Model.Categories)
+                    {
+                        <option value="@category.Id">@category.Name</option>
+                    }
+                </select>
+                <button type="submit" name="action" value="Create" class="btn btn-primary">Add</button>
             </form>
         </div>
 
@@ -35,31 +42,37 @@
             <div class="list">
                 @foreach (var todo in Model.PendingTodos)
                 {
+                    var formId = $"todo-form-{todo.Id}";
+                    var categoryName = Model.CategoryLookup.TryGetValue(todo.CategoryId, out var lookupName) ? lookupName : "Unassigned";
                     <div class="item">
                         <div class="left">
                             <div class="avatar">T</div>
-                            <div style="min-width:0">
+                            <div class="details">
                                 @if (Model.EditingId == todo.Id)
                                 {
-                                    <form method="post" style="display:inline-block">
-                                        @Html.AntiForgeryToken()
-                                        <input type="hidden" name="id" value="@todo.Id" />
-                                        <input type="text" name="title" value="@todo.Title" required class="edit-input" autofocus />
-                                    </form>
+                                    <input type="text" name="title" value="@todo.Title" required class="edit-input" autofocus form="@formId" />
+                                    <select name="categoryId" class="edit-select" form="@formId">
+                                        @foreach (var category in Model.Categories)
+                                        {
+                                            <option value="@category.Id" selected="@(category.Id == todo.CategoryId)">@category.Name</option>
+                                        }
+                                    </select>
                                 }
                                 else
                                 {
                                     <div class="title">@todo.Title</div>
-                                    <div class="muted">#@todo.Id</div>
+                                    <div class="meta">
+                                        <span class="muted">#@todo.Id</span>
+                                        <span class="category-pill">@categoryName</span>
+                                    </div>
                                 }
                             </div>
                         </div>
 
                         <div class="actions">
-                            <form method="post" style="display:inline-flex;gap:8px;align-items:center">
+                            <form method="post" id="@formId" style="display:inline-flex;gap:8px;align-items:center">
                                 @Html.AntiForgeryToken()
                                 <input type="hidden" name="id" value="@todo.Id" />
-                                <input type="hidden" name="title" value="@todo.Title" />
                                 <input type="hidden" name="isCompleted" value="@(todo.IsCompleted.ToString().ToLower())" />
                                 @if (Model.EditingId == todo.Id)
                                 {
@@ -68,6 +81,8 @@
                                 }
                                 else
                                 {
+                                    <input type="hidden" name="title" value="@todo.Title" />
+                                    <input type="hidden" name="categoryId" value="@todo.CategoryId" />
                                     <button type="submit" name="action" value="Edit" class="icon-btn warn" title="Edit" aria-label="Edit">✏️</button>
                                     <button type="submit" name="action" value="Toggle" class="icon-btn primary" title="Complete" aria-label="Complete">✓</button>
                                     <button type="submit" name="action" value="Delete" class="icon-btn danger" title="Delete" aria-label="Delete" onclick="return confirm('Delete this task?')">🗑️</button>
@@ -89,20 +104,26 @@
             <div class="list">
                 @foreach (var todo in Model.CompletedTodos)
                 {
+                    var formId = $"todo-form-{todo.Id}";
+                    var categoryName = Model.CategoryLookup.TryGetValue(todo.CategoryId, out var lookupName) ? lookupName : "Unassigned";
                     <div class="item">
                         <div class="left">
                             <div class="avatar done">✓</div>
-                            <div>
+                            <div class="details">
                                 <div class="title completed">@todo.Title</div>
-                                <div class="muted">#@todo.Id</div>
+                                <div class="meta">
+                                    <span class="muted">#@todo.Id</span>
+                                    <span class="category-pill">@categoryName</span>
+                                </div>
                             </div>
                         </div>
                         <div class="actions">
-                            <form method="post" style="display:inline-flex;gap:8px;align-items:center">
+                            <form method="post" id="@formId" style="display:inline-flex;gap:8px;align-items:center">
                                 @Html.AntiForgeryToken()
                                 <input type="hidden" name="id" value="@todo.Id" />
                                 <input type="hidden" name="title" value="@todo.Title" />
                                 <input type="hidden" name="isCompleted" value="@(todo.IsCompleted.ToString().ToLower())" />
+                                <input type="hidden" name="categoryId" value="@todo.CategoryId" />
                                 <button type="submit" name="action" value="Toggle" class="icon-btn warn" title="Reopen" aria-label="Reopen">↺</button>
                                 <button type="submit" name="action" value="Delete" class="icon-btn danger" title="Delete" aria-label="Delete" onclick="return confirm('Delete this task?')">🗑️</button>
                             </form>

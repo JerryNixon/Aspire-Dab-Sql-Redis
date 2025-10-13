@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
@@ -12,6 +14,10 @@ public class IndexModel : PageModel
 
     public Todo[] CompletedTodos { get; set; } = [];
 
+    public Category[] Categories { get; set; } = [];
+
+    public IReadOnlyDictionary<int, string> CategoryLookup { get; private set; } = new Dictionary<int, string>();
+
     [TempData]
     public string? ErrorMessage { get; set; }
 
@@ -24,11 +30,14 @@ public class IndexModel : PageModel
         {
             var pendingTask = TodoRepository.GetAsync(false, new());
             var completedTask = TodoRepository.GetAsync(true, new());
+            var categoriesTask = CategoryRepository.GetAsync(new());
 
-            await Task.WhenAll(pendingTask, completedTask);
+            await Task.WhenAll(pendingTask, completedTask, categoriesTask);
 
             PendingTodos = await pendingTask;
             CompletedTodos = await completedTask;
+            Categories = await categoriesTask;
+            CategoryLookup = Categories.ToDictionary(c => c.Id, c => c.Name);
         }
         catch (Exception ex)
         {
@@ -52,15 +61,29 @@ public class IndexModel : PageModel
                 bool.TryParse(val.FirstOrDefault(), out postedIsCompleted);
             }
 
+            int postedCategoryId = 0;
+            if (Request.HasFormContentType && Request.Form.TryGetValue("categoryId", out var categoryValues))
+            {
+                int.TryParse(categoryValues.FirstOrDefault(), out postedCategoryId);
+            }
+
             var todo = id.HasValue
-                ? new Todo { Id = id.Value, Title = title ?? Request.Form["title"].FirstOrDefault() ?? string.Empty, IsCompleted = postedIsCompleted }
+                ? new Todo
+                {
+                    Id = id.Value,
+                    Title = title ?? Request.Form["title"].FirstOrDefault() ?? string.Empty,
+                    IsCompleted = postedIsCompleted,
+                    CategoryId = postedCategoryId
+                }
                 : null;
 
             var task = action switch
             {
                 "Create" => string.IsNullOrWhiteSpace(title)
                     ? throw new ArgumentNullException(nameof(title), "Title cannot be empty.")
-                    : TodoRepository.AddAsync(new Todo { Title = title! }, new()),
+                    : postedCategoryId <= 0
+                        ? throw new ArgumentOutOfRangeException(nameof(postedCategoryId), "Category is required.")
+                        : TodoRepository.AddAsync(new Todo { Title = title!, CategoryId = postedCategoryId }, new()),
 
                 "Edit" => !id.HasValue
                     ? throw new ArgumentNullException(nameof(id))
@@ -68,7 +91,9 @@ public class IndexModel : PageModel
 
                 "Update" => (!id.HasValue || string.IsNullOrWhiteSpace(title))
                     ? throw new ArgumentNullException("ID and title are required.")
-                    : TodoRepository.UpdateAsync(todo! with { Title = title!, IsCompleted = todo.IsCompleted }, new()),
+                    : postedCategoryId <= 0
+                        ? throw new ArgumentOutOfRangeException(nameof(postedCategoryId), "Category is required.")
+                        : TodoRepository.UpdateAsync(todo! with { Title = title!, CategoryId = postedCategoryId, IsCompleted = todo.IsCompleted }, new()),
 
                 "Toggle" => !id.HasValue
                     ? throw new ArgumentNullException(nameof(id))
