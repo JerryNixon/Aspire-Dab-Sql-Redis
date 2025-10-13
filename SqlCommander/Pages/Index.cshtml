@@ -102,6 +102,8 @@
             background: var(--border-color);
             cursor: col-resize;
             flex-shrink: 0;
+            touch-action: none;
+            user-select: none;
             transition: background 0.2s;
         }
 
@@ -114,6 +116,8 @@
             background: var(--border-color);
             cursor: row-resize;
             flex-shrink: 0;
+            touch-action: none;
+            user-select: none;
             transition: background 0.2s;
         }
 
@@ -249,7 +253,7 @@
         }
 
         .editor-container {
-            flex: 2;
+            flex: 1 1 33%;
             display: flex;
             flex-direction: column;
             min-height: 200px;
@@ -315,7 +319,7 @@
         }
 
         .results-container {
-            flex: 1;
+            flex: 2 1 67%;
             min-height: 150px;
             overflow: auto;
             padding: 12px;
@@ -969,37 +973,50 @@
                 return html;
             },
 
+            setNodeExpanded(node, expand) {
+                if (!node) return;
+                node.classList.toggle('collapsed', !expand);
+                node.classList.toggle('expanded', expand);
+                const icon = node.querySelector('.tree-label .tree-icon');
+                if (icon) {
+                    icon.textContent = expand ? 'v' : '>';
+                }
+            },
+
             toggleNode(event) {
                 event.stopPropagation();
-                const icon = event.target;
-                const node = icon.closest('.tree-node');
-                
-                if (node.classList.contains('collapsed')) {
-                    node.classList.remove('collapsed');
-                    node.classList.add('expanded');
-                    icon.textContent = 'v';
-                } else {
-                    node.classList.remove('expanded');
-                    node.classList.add('collapsed');
-                    icon.textContent = '>';
-                }
+                const node = event.target.closest('.tree-node');
+                if (!node) return;
+                const shouldExpand = node.classList.contains('collapsed');
+                this.setNodeExpanded(node, shouldExpand);
             },
 
             selectTreeNode(event) {
                 // Don't toggle if clicking on action buttons or chevron
                 if (event.target.tagName === 'BUTTON') return;
-                if (event.target.classList.contains('tree-icon')) return;
-                
+
+                const node = event.target.closest('.tree-node');
+                if (!node) return;
+
+                const iconClicked = event.target.classList.contains('tree-icon');
+
+                if (node.dataset.type === 'category' || node.dataset.type === 'schema') {
+                    if (!iconClicked) {
+                        const shouldExpand = node.classList.contains('collapsed');
+                        this.setNodeExpanded(node, shouldExpand);
+                    }
+                    return;
+                }
+
+                if (iconClicked) return;
+
                 // Remove selection from all nodes
                 document.querySelectorAll('.tree-node.selected').forEach(n => n.classList.remove('selected'));
-                
+
                 // Add selection to clicked node
-                const node = event.target.closest('.tree-node');
-                if (node && (node.dataset.type === 'table' || node.dataset.type === 'view' || node.dataset.type === 'proc')) {
+                if (node.dataset.type === 'table' || node.dataset.type === 'view' || node.dataset.type === 'proc') {
                     node.classList.add('selected');
                 }
-                
-                // Don't auto-expand - only chevron should expand
             },
 
             async insertTopN(fullName, event) {
@@ -1119,8 +1136,7 @@
                     
                     // Collapse object nodes when filtering
                     if (shouldFilter && isVisible) {
-                        node.classList.remove('expanded');
-                        node.classList.add('collapsed');
+                        this.setNodeExpanded(node, false);
                     }
                     
                     // Find parent schema node
@@ -1158,8 +1174,7 @@
                             schemaNode.style.display = '';
                             schemaLabel.textContent = `${schemaName} (${visibleCount})`;
                             // Auto-expand schema to show filtered results
-                            schemaNode.classList.remove('collapsed');
-                            schemaNode.classList.add('expanded');
+                            this.setNodeExpanded(schemaNode, true);
                         } else {
                             schemaNode.style.display = 'none';
                         }
@@ -1182,8 +1197,7 @@
                         
                         // Auto-expand category if it has visible items
                         if (count > 0) {
-                            catNode.classList.remove('collapsed');
-                            catNode.classList.add('expanded');
+                            this.setNodeExpanded(catNode, true);
                         }
                     } else {
                         // Reset to original counts
@@ -1200,11 +1214,9 @@
                         
                         // Reset to default (Tables expanded, others collapsed)
                         if (title === 'Tables') {
-                            catNode.classList.remove('collapsed');
-                            catNode.classList.add('expanded');
+                            this.setNodeExpanded(catNode, true);
                         } else {
-                            catNode.classList.remove('expanded');
-                            catNode.classList.add('collapsed');
+                            this.setNodeExpanded(catNode, false);
                         }
                     }
                 });
@@ -1212,8 +1224,7 @@
                 // Collapse all schemas when filter is cleared
                 if (!shouldFilter) {
                     schemaNodes.forEach(schemaNode => {
-                        schemaNode.classList.remove('expanded');
-                        schemaNode.classList.add('collapsed');
+                        this.setNodeExpanded(schemaNode, false);
                     });
                 }
             },
@@ -1656,54 +1667,144 @@
             setupResizers() {
                 const verticalResizer = document.getElementById('verticalResizer');
                 const horizontalResizer = document.getElementById('horizontalResizer');
-                let isResizingVertical = false;
-                let isResizingHorizontal = false;
-                let lastDownX = 0;
-                let lastDownY = 0;
+                const leftPane = document.querySelector('.left-pane');
+                const rightPane = document.querySelector('.right-pane');
+                const editorContainer = document.querySelector('.editor-container');
+                const resultsContainer = document.querySelector('.results-container');
+                const clearPointerStyles = () => {
+                    document.body.style.cursor = '';
+                    document.body.style.userSelect = '';
+                };
 
-                verticalResizer.addEventListener('mousedown', (e) => {
-                    isResizingVertical = true;
-                    lastDownX = e.clientX;
+                if (!verticalResizer || !horizontalResizer || !leftPane || !rightPane || !editorContainer || !resultsContainer) {
+                    return;
+                }
+
+                const getMinHeight = (element, fallback) => {
+                    const value = parseInt(window.getComputedStyle(element).minHeight, 10);
+                    return Number.isNaN(value) ? fallback : value;
+                };
+
+                let verticalState = null;
+                let horizontalState = null;
+
+                const onVerticalPointerDown = (event) => {
+                    event.preventDefault();
+                    verticalResizer.setPointerCapture(event.pointerId);
+                    verticalState = {
+                        pointerId: event.pointerId,
+                        startX: event.clientX,
+                        startWidth: leftPane.offsetWidth,
+                    };
                     document.body.style.cursor = 'col-resize';
                     document.body.style.userSelect = 'none';
-                });
+                };
 
-                horizontalResizer.addEventListener('mousedown', (e) => {
-                    isResizingHorizontal = true;
-                    lastDownY = e.clientY;
+                const onVerticalPointerMove = (event) => {
+                    if (!verticalState || event.pointerId !== verticalState.pointerId) {
+                        return;
+                    }
+
+                    const deltaX = event.clientX - verticalState.startX;
+                    const newWidth = Math.min(
+                        Math.max(verticalState.startWidth + deltaX, 200),
+                        window.innerWidth - 400
+                    );
+                    leftPane.style.width = `${newWidth}px`;
+                    rightPane.style.flex = `1 1 calc(100% - ${newWidth}px)`;
+                };
+
+                const onVerticalPointerUp = (event) => {
+                    if (!verticalState || event.pointerId !== verticalState.pointerId) {
+                        return;
+                    }
+
+                    verticalResizer.releasePointerCapture(verticalState.pointerId);
+                    verticalState = null;
+                    clearPointerStyles();
+                };
+
+                verticalResizer.addEventListener('pointerdown', onVerticalPointerDown);
+                verticalResizer.addEventListener('pointermove', onVerticalPointerMove);
+                verticalResizer.addEventListener('pointerup', onVerticalPointerUp);
+                verticalResizer.addEventListener('pointercancel', onVerticalPointerUp);
+
+                const applyHorizontalFlex = (editorHeight, resultsHeight) => {
+                    if (!horizontalState) return;
+                    const total = editorHeight + resultsHeight;
+                    if (total <= 0) return;
+
+                    const editorRatio = editorHeight / total;
+                    const resultsRatio = resultsHeight / total;
+                    const scale = 1000;
+                    const editorGrow = Math.max(1, Math.round(editorRatio * scale));
+                    const resultsGrow = Math.max(1, Math.round(resultsRatio * scale));
+
+                    editorContainer.style.flex = `${editorGrow} 1 0%`;
+                    resultsContainer.style.flex = `${resultsGrow} 1 0%`;
+
+                    if (this.editor) {
+                        this.editor.layout();
+                    }
+
+                    horizontalState.currentEditor = editorHeight;
+                    horizontalState.currentResults = resultsHeight;
+                };
+
+                const onHorizontalPointerDown = (event) => {
+                    event.preventDefault();
+                    const totalHeight = editorContainer.offsetHeight + resultsContainer.offsetHeight;
+                    horizontalState = {
+                        pointerId: event.pointerId,
+                        startY: event.clientY,
+                        totalHeight,
+                        editorInitial: editorContainer.offsetHeight,
+                        editorMin: getMinHeight(editorContainer, 200),
+                        resultsMin: getMinHeight(resultsContainer, 150),
+                        currentEditor: null,
+                        currentResults: null,
+                    };
+                    horizontalResizer.setPointerCapture(event.pointerId);
                     document.body.style.cursor = 'row-resize';
                     document.body.style.userSelect = 'none';
-                });
+                };
 
-                document.addEventListener('mousemove', (e) => {
-                    if (isResizingVertical) {
-                        const offsetX = e.clientX - lastDownX;
-                        lastDownX = e.clientX;
-                        const leftPane = document.querySelector('.left-pane');
-                        const rightPane = document.querySelector('.right-pane');
-                        const newWidth = Math.min(Math.max(leftPane.offsetWidth + offsetX, 200), window.innerWidth - 400);
-                        leftPane.style.width = `${newWidth}px`;
-                        rightPane.style.flex = `1 1 calc(100% - ${newWidth}px)`;
-                    } else if (isResizingHorizontal) {
-                        const offsetY = e.clientY - lastDownY;
-                        lastDownY = e.clientY;
-                        const editorContainer = document.querySelector('.editor-container');
-                        const newHeight = Math.min(Math.max(editorContainer.offsetHeight + offsetY, 200), window.innerHeight - 200);
-                        editorContainer.style.height = `${newHeight}px`;
+                const onHorizontalPointerMove = (event) => {
+                    if (!horizontalState || event.pointerId !== horizontalState.pointerId) {
+                        return;
                     }
-                });
 
-                document.addEventListener('mouseup', () => {
-                    if (isResizingVertical) {
-                        isResizingVertical = false;
-                        document.body.style.cursor = '';
-                        document.body.style.userSelect = '';
-                    } else if (isResizingHorizontal) {
-                        isResizingHorizontal = false;
-                        document.body.style.cursor = '';
-                        document.body.style.userSelect = '';
+                    const deltaY = event.clientY - horizontalState.startY;
+                    const availableHeight = horizontalState.totalHeight;
+                    const editorMin = horizontalState.editorMin;
+                    const resultsMin = horizontalState.resultsMin;
+
+                    let editorHeight = horizontalState.editorInitial + deltaY;
+                    editorHeight = Math.max(editorMin, Math.min(editorHeight, availableHeight - resultsMin));
+                    const resultsHeight = availableHeight - editorHeight;
+
+                    applyHorizontalFlex(editorHeight, resultsHeight);
+                };
+
+                const onHorizontalPointerUp = (event) => {
+                    if (!horizontalState || event.pointerId !== horizontalState.pointerId) {
+                        return;
                     }
-                });
+
+                    horizontalResizer.releasePointerCapture(horizontalState.pointerId);
+                    clearPointerStyles();
+
+                    if (horizontalState.currentEditor != null && horizontalState.currentResults != null) {
+                        applyHorizontalFlex(horizontalState.currentEditor, horizontalState.currentResults);
+                    }
+
+                    horizontalState = null;
+                };
+
+                horizontalResizer.addEventListener('pointerdown', onHorizontalPointerDown);
+                horizontalResizer.addEventListener('pointermove', onHorizontalPointerMove);
+                horizontalResizer.addEventListener('pointerup', onHorizontalPointerUp);
+                horizontalResizer.addEventListener('pointercancel', onHorizontalPointerUp);
             }
     };
 
