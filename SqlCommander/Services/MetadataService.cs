@@ -61,13 +61,56 @@ public class MetadataService : IMetadataService
         {
             Tables = await GetTablesAsync(connection),
             Views = await GetViewsAsync(connection),
-            StoredProcedures = await GetStoredProceduresAsync(connection)
+            StoredProcedures = await GetStoredProceduresAsync(connection),
+            ForeignKeys = await GetForeignKeysAsync(connection)
         };
 
-        _logger.LogInformation("Metadata loaded: {Tables} tables, {Views} views, {Procedures} stored procedures",
-            metadata.Tables.Count, metadata.Views.Count, metadata.StoredProcedures.Count);
+        _logger.LogInformation("Metadata loaded: {Tables} tables, {Views} views, {Procedures} stored procedures, {ForeignKeys} foreign keys",
+            metadata.Tables.Count, metadata.Views.Count, metadata.StoredProcedures.Count, metadata.ForeignKeys.Count);
 
         return metadata;
+    }
+
+    private async Task<List<ForeignKeyMetadata>> GetForeignKeysAsync(SqlConnection connection)
+    {
+        var fks = new List<ForeignKeyMetadata>();
+        const string sql = @"
+            SELECT 
+                fk.name AS FkName,
+                ps.name AS ParentSchema,
+                pt.name AS ParentTable,
+                pc.name AS ParentColumn,
+                rs.name AS ReferencedSchema,
+                rt.name AS ReferencedTable,
+                rc.name AS ReferencedColumn
+            FROM sys.foreign_keys fk
+            INNER JOIN sys.foreign_key_columns fkc ON fk.object_id = fkc.constraint_object_id
+            INNER JOIN sys.tables pt ON fkc.parent_object_id = pt.object_id
+            INNER JOIN sys.schemas ps ON pt.schema_id = ps.schema_id
+            INNER JOIN sys.columns pc ON fkc.parent_object_id = pc.object_id AND fkc.parent_column_id = pc.column_id
+            INNER JOIN sys.tables rt ON fkc.referenced_object_id = rt.object_id
+            INNER JOIN sys.schemas rs ON rt.schema_id = rs.schema_id
+            INNER JOIN sys.columns rc ON fkc.referenced_object_id = rc.object_id AND fkc.referenced_column_id = rc.column_id
+            WHERE pt.is_ms_shipped = 0 AND rt.is_ms_shipped = 0
+            ORDER BY ps.name, pt.name, fk.name";
+
+        await using var command = new SqlCommand(sql, connection);
+        await using var reader = await command.ExecuteReaderAsync();
+
+        while (await reader.ReadAsync())
+        {
+            fks.Add(new ForeignKeyMetadata
+            {
+                Name = reader["FkName"].ToString()!,
+                ParentSchema = reader["ParentSchema"].ToString()!,
+                ParentTable = reader["ParentTable"].ToString()!,
+                ParentColumn = reader["ParentColumn"].ToString()!,
+                ReferencedSchema = reader["ReferencedSchema"].ToString()!,
+                ReferencedTable = reader["ReferencedTable"].ToString()!,
+                ReferencedColumn = reader["ReferencedColumn"].ToString()!
+            });
+        }
+        return fks;
     }
 
     private async Task<List<TableMetadata>> GetTablesAsync(SqlConnection connection)

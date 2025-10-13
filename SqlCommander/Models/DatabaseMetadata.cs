@@ -5,6 +5,18 @@ public record DatabaseMetadata
     public List<TableMetadata> Tables { get; init; } = [];
     public List<ViewMetadata> Views { get; init; } = [];
     public List<StoredProcedureMetadata> StoredProcedures { get; init; } = [];
+    public List<ForeignKeyMetadata> ForeignKeys { get; init; } = [];
+}
+
+public record ForeignKeyMetadata
+{
+    public required string Name { get; init; }
+    public required string ParentSchema { get; init; }
+    public required string ParentTable { get; init; }
+    public required string ParentColumn { get; init; }
+    public required string ReferencedSchema { get; init; }
+    public required string ReferencedTable { get; init; }
+    public required string ReferencedColumn { get; init; }
 }
 
 public record TableMetadata

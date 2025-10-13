@@ -10,6 +10,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@title</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/editor/editor.main.css">
     <link rel="stylesheet" href="~/css/site.css" />
     <style>
         :root {
@@ -305,23 +306,16 @@
         .editor {
             flex: 1;
             min-height: 200px;
+            overflow: hidden; /* Important for Monaco */
         }
 
         #sqlEditor {
             width: 100%;
             height: 100%;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            border: none;
-            padding: 12px;
-            font-family: 'Consolas', 'Courier New', monospace;
-            font-size: 14px;
-            resize: none;
-            outline: none;
         }
 
         .results-container {
-            flex: 3;
+            flex: 1;
             min-height: 150px;
             overflow: auto;
             padding: 12px;
@@ -412,6 +406,37 @@
             max-width: 500px;
             width: 90%;
             border: 1px solid var(--border-color);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+        }
+
+        .modal-content.schema-modal {
+            max-width: 95vw;
+            width: 95vw;
+            height: 85vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #schemaContainer {
+            flex: 1;
+            overflow: auto;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #schemaContainer svg {
+            max-width: 100% !important;
+            height: auto !important;
+        }
+        
+        #schemaContainer .loading {
+            font-size: 16px;
+            padding: 40px;
         }
 
         .modal-header {
@@ -573,8 +598,8 @@
                     <div class="loading">Loading metadata...</div>
                 </div>
                 <div class="schema-download">
-                    <button onclick="app.refreshMetadata()">Refresh Metadata</button>
-                    <button onclick="app.downloadSchema()">Download Schema</button>
+                    <button id="refreshMetadataBtn" type="button">Refresh Metadata</button>
+                    <button id="viewSchemaBtn" type="button">View Schema</button>
                 </div>
             </div>
 
@@ -592,7 +617,7 @@
                         </div>
                     </div>
                     <div class="editor">
-                        <textarea id="sqlEditor" placeholder="Enter SQL query..."></textarea>
+                        <div id="sqlEditor"></div>
                     </div>
                 </div>
                 <div class="horizontal-resizer" id="horizontalResizer"></div>
@@ -675,6 +700,18 @@
         </div>
     </div>
 
+    <!-- Schema Modal -->
+    <div class="modal" id="schemaModal" onclick="app.handleModalClick(event)">
+        <div class="modal-content schema-modal" onclick="event.stopPropagation()">
+            <div class="modal-header">Database Schema</div>
+            <div id="schemaContainer"></div>
+            <div class="modal-actions" style="justify-content: flex-end;">
+                <button class="secondary" onclick="app.hideSchema()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js"></script>
     <script>
         const app = {
             metadata: null,
@@ -682,12 +719,88 @@
             startTime: null,
             timerInterval: null,
             settings: null,
+            editor: null,
+            mermaidPromise: null,
 
             async init() {
                 await this.loadSettings();
+                this.initEditor();
+                this.bindUiActions();
                 await this.loadMetadata();
                 this.setupKeyboardShortcuts();
                 this.setupResizers();
+            },
+
+            bindUiActions() {
+                const refreshBtn = document.getElementById('refreshMetadataBtn');
+                if (refreshBtn && !refreshBtn.dataset.bound) {
+                    refreshBtn.addEventListener('click', () => this.refreshMetadata());
+                    refreshBtn.dataset.bound = 'true';
+                }
+
+                const viewSchemaBtn = document.getElementById('viewSchemaBtn');
+                if (viewSchemaBtn && !viewSchemaBtn.dataset.bound) {
+                    viewSchemaBtn.addEventListener('click', () => this.showSchema());
+                    viewSchemaBtn.dataset.bound = 'true';
+                }
+            },
+
+            getMermaidConfig() {
+                const isLightTheme = this.settings && this.settings.theme === 'light';
+                return {
+                    startOnLoad: false,
+                    theme: isLightTheme ? 'default' : 'dark',
+                    er: {
+                        useMaxWidth: true,
+                        fontSize: 14,
+                        layoutDirection: 'TB'
+                    },
+                    flowchart: {
+                        useMaxWidth: true
+                    }
+                };
+            },
+
+            loadMermaid() {
+                if (!this.mermaidPromise) {
+                    this.mermaidPromise = new Promise((resolve, reject) => {
+                        const initializeMermaid = () => {
+                            try {
+                                mermaid.initialize(this.getMermaidConfig());
+                                resolve();
+                            } catch (configError) {
+                                reject(configError);
+                            }
+                        };
+
+                        if (typeof mermaid !== 'undefined') {
+                            initializeMermaid();
+                            return;
+                        }
+
+                        const script = document.createElement('script');
+                        script.src = 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js';
+                        script.onload = initializeMermaid;
+                        script.onerror = () => reject(new Error('Failed to load Mermaid script.'));
+                        document.body.appendChild(script);
+                    });
+                }
+                return this.mermaidPromise;
+            },
+
+            initEditor() {
+                require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs' }});
+                require(['vs/editor/editor.main'], () => {
+                    this.editor = monaco.editor.create(document.getElementById('sqlEditor'), {
+                        value: '-- Enter SQL query...',
+                        language: 'sql',
+                        theme: this.settings.theme === 'light' ? 'vs' : 'vs-dark',
+                        automaticLayout: true,
+                        minimap: { enabled: false },
+                        fontSize: 14,
+                        fontFamily: 'Consolas, "Courier New", monospace',
+                    });
+                });
             },
 
             async loadSettings() {
@@ -713,7 +826,7 @@
 
             async loadMetadata() {
                 const container = document.getElementById('treeContainer');
-                const refreshBtn = document.querySelector('.schema-download button');
+                const refreshBtn = document.getElementById('refreshMetadataBtn');
                 
                 // Show loading state
                 container.innerHTML = '<div class="loading">⏳ Loading metadata...</div>';
@@ -894,7 +1007,7 @@
                 if (!this.settings.confirmActions || confirm('This will overwrite the current editor content and execute immediately. Continue?')) {
                     const settings = await (await fetch('?handler=Settings')).json();
                     const limit = settings.defaultResultLimit || 100;
-                    document.getElementById('sqlEditor').value = `SELECT TOP ${limit} * FROM ${fullName};`;
+                    this.editor.setValue(`SELECT TOP ${limit} * FROM ${fullName};`);
                     // Auto-execute the query
                     await this.executeQuery();
                 }
@@ -919,7 +1032,7 @@
                     }
                     sql += ';';
 
-                    document.getElementById('sqlEditor').value = sql;
+                    this.editor.setValue(sql);
                 }
             },
 
@@ -970,7 +1083,7 @@
                         }
                     }
 
-                    document.getElementById('sqlEditor').value = sql;
+                    this.editor.setValue(sql);
                 }
             },
 
@@ -978,7 +1091,7 @@
                 event.stopPropagation();
                 if (!this.settings.confirmActions || confirm('This will overwrite the current editor content. Continue?')) {
                     const objectType = type === 'table' ? 'TABLE' : type === 'view' ? 'VIEW' : 'PROCEDURE';
-                    document.getElementById('sqlEditor').value = `DROP ${objectType} ${fullName};`;
+                    this.editor.setValue(`DROP ${objectType} ${fullName};`);
                 }
             },
 
@@ -1108,7 +1221,7 @@
             async executeQuery() {
                 if (this.queryRunning) return;
 
-                const sql = document.getElementById('sqlEditor').value.trim();
+                const sql = this.editor.getValue().trim();
                 if (!sql) return;
 
                 this.queryRunning = true;
@@ -1278,8 +1391,9 @@
 
             handleModalClick(event) {
                 // Close modal when clicking on the backdrop (but not on the modal content)
-                if (event.target.id === 'settingsModal') {
+                if (event.target.id === 'settingsModal' || event.target.id === 'schemaModal') {
                     this.hideSettings();
+                    this.hideSchema();
                 }
             },
 
@@ -1368,8 +1482,154 @@
                 await this.loadMetadata();
             },
 
-            async downloadSchema() {
-                window.location.href = '?handler=DownloadSchema';
+            async showSchema() {
+                console.log('showSchema called');
+                
+                // Load Mermaid library
+                try {
+                    await this.loadMermaid();
+                    console.log('Mermaid loaded successfully');
+                } catch (error) {
+                    console.error('Failed to load Mermaid:', error);
+                    const message = error instanceof Error ? error.message : error;
+                    alert('Failed to load diagram library: ' + message);
+                    return;
+                }
+
+                // Show modal immediately
+                const modal = document.getElementById('schemaModal');
+                const container = document.getElementById('schemaContainer');
+                
+                modal.classList.add('show');
+                container.innerHTML = '<div class="loading">Generating diagram...</div>';
+
+                // Check if we have tables
+                if (!this.metadata || !this.metadata.tables || this.metadata.tables.length === 0) {
+                    container.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-secondary);">No tables found in the database.</div>';
+                    return;
+                }
+
+                console.log('Generating ERD for', this.metadata.tables.length, 'tables');
+
+                // Configure Mermaid theme so subsequent renders stay in sync with the current UI settings.
+                try {
+                    mermaid.initialize(this.getMermaidConfig());
+                } catch (error) {
+                    console.error('Mermaid initialization error:', error);
+                }
+
+                // Build the ERD diagram
+                let erd = 'erDiagram\n';
+                const processedTables = new Set();
+                
+                // Add tables with relationships first
+                if (this.metadata.foreignKeys && this.metadata.foreignKeys.length > 0) {
+                    console.log('Processing', this.metadata.foreignKeys.length, 'foreign keys');
+                    
+                    this.metadata.foreignKeys.forEach(fk => {
+                        const parentKey = `${fk.parentSchema}_${fk.parentTable}`;
+                        const refKey = `${fk.referencedSchema}_${fk.referencedTable}`;
+                        
+                        // Add parent table if not already added
+                        if (!processedTables.has(parentKey)) {
+                            const table = this.metadata.tables.find(t => 
+                                t.schema === fk.parentSchema && t.name === fk.parentTable
+                            );
+                            if (table) {
+                                erd += `    ${parentKey} {\n`;
+                                table.columns.slice(0, 10).forEach(col => {
+                                    const safeColName = col.name.replace(/[^a-zA-Z0-9_]/g, '_');
+                                    const typeInfo = col.dataType || 'string';
+                                    erd += `        ${typeInfo} ${safeColName}\n`;
+                                });
+                                if (table.columns.length > 10) {
+                                    erd += `        string more_columns "..."\n`;
+                                }
+                                erd += `    }\n`;
+                                processedTables.add(parentKey);
+                            }
+                        }
+                        
+                        // Add referenced table if not already added
+                        if (!processedTables.has(refKey)) {
+                            const table = this.metadata.tables.find(t => 
+                                t.schema === fk.referencedSchema && t.name === fk.referencedTable
+                            );
+                            if (table) {
+                                erd += `    ${refKey} {\n`;
+                                table.columns.slice(0, 10).forEach(col => {
+                                    const safeColName = col.name.replace(/[^a-zA-Z0-9_]/g, '_');
+                                    const typeInfo = col.dataType || 'string';
+                                    erd += `        ${typeInfo} ${safeColName}\n`;
+                                });
+                                if (table.columns.length > 10) {
+                                    erd += `        string more_columns "..."\n`;
+                                }
+                                erd += `    }\n`;
+                                processedTables.add(refKey);
+                            }
+                        }
+                        
+                        // Add relationship
+                        erd += `    ${parentKey} ||--o{ ${refKey} : "${fk.name}"\n`;
+                    });
+                }
+                
+                // Add remaining standalone tables
+                this.metadata.tables.forEach(table => {
+                    const tableKey = `${table.schema}_${table.name}`;
+                    if (!processedTables.has(tableKey)) {
+                        erd += `    ${tableKey} {\n`;
+                        table.columns.slice(0, 10).forEach(col => {
+                            const safeColName = col.name.replace(/[^a-zA-Z0-9_]/g, '_');
+                            const typeInfo = col.dataType || 'string';
+                            const nullInfo = col.isNullable ? '' : ' "NOT NULL"';
+                            erd += `        ${typeInfo} ${safeColName}${nullInfo}\n`;
+                        });
+                        if (table.columns.length > 10) {
+                            erd += `        string more_columns "..."\n`;
+                        }
+                        erd += `    }\n`;
+                        processedTables.add(tableKey);
+                    }
+                });
+
+                console.log('Generated ERD:\n', erd);
+
+                // Render the diagram
+                try {
+                    // Give the DOM a moment to update
+                    await new Promise(resolve => setTimeout(resolve, 50));
+                    
+                    const { svg, bindFunctions } = await mermaid.render('schemaDiagram_' + Date.now(), erd);
+                    container.innerHTML = svg;
+                    bindFunctions?.(container);
+                    console.log('Diagram rendered successfully');
+                    
+                    // Add some styling to the SVG
+                    const svgElement = container.querySelector('svg');
+                    if (svgElement) {
+                        svgElement.style.maxWidth = '100%';
+                        svgElement.style.height = 'auto';
+                    }
+                } catch (renderError) {
+                    console.error('Mermaid render error:', renderError);
+                    container.innerHTML = `
+                        <div class="error" style="padding: 20px;">
+                            <strong>Could not render schema diagram</strong><br><br>
+                            <pre style="overflow: auto; max-height: 300px;">${renderError.message || renderError}</pre>
+                            <br>
+                            <details style="margin-top: 10px;">
+                                <summary style="cursor: pointer;">View ERD Definition</summary>
+                                <pre style="overflow: auto; max-height: 300px; margin-top: 10px;">${erd}</pre>
+                            </details>
+                        </div>
+                    `;
+                }
+            },
+
+            hideSchema() {
+                document.getElementById('schemaModal').classList.remove('show');
             },
 
             setupKeyboardShortcuts() {
@@ -1377,28 +1637,59 @@
                     if (e.ctrlKey && e.key === 'e') {
                         e.preventDefault();
                         this.executeQuery();
+                    } else if (e.ctrlKey && e.key === 's') {
+                        e.preventDefault();
+                        this.saveSettings();
+                    } else if (e.ctrlKey && e.key === 'f') {
+                        e.preventDefault();
+                        document.getElementById('filterInput').focus();
+                    } else if (e.ctrlKey && e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        this.editor.setValue(this.editor.getValue() + '\n--\n');
+                    } else if (e.ctrlKey && e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        this.editor.setValue(this.editor.getValue() + '\n/*\n');
                     }
                 });
             },
 
             setupResizers() {
-                // Vertical resizer (left pane width)
                 const verticalResizer = document.getElementById('verticalResizer');
-                const leftPane = document.querySelector('.left-pane');
+                const horizontalResizer = document.getElementById('horizontalResizer');
                 let isResizingVertical = false;
+                let isResizingHorizontal = false;
+                let lastDownX = 0;
+                let lastDownY = 0;
 
                 verticalResizer.addEventListener('mousedown', (e) => {
                     isResizingVertical = true;
+                    lastDownX = e.clientX;
                     document.body.style.cursor = 'col-resize';
                     document.body.style.userSelect = 'none';
                 });
 
+                horizontalResizer.addEventListener('mousedown', (e) => {
+                    isResizingHorizontal = true;
+                    lastDownY = e.clientY;
+                    document.body.style.cursor = 'row-resize';
+                    document.body.style.userSelect = 'none';
+                });
+
                 document.addEventListener('mousemove', (e) => {
-                    if (!isResizingVertical) return;
-                    
-                    const newWidth = e.clientX;
-                    if (newWidth >= 200 && newWidth <= 600) {
-                        leftPane.style.width = newWidth + 'px';
+                    if (isResizingVertical) {
+                        const offsetX = e.clientX - lastDownX;
+                        lastDownX = e.clientX;
+                        const leftPane = document.querySelector('.left-pane');
+                        const rightPane = document.querySelector('.right-pane');
+                        const newWidth = Math.min(Math.max(leftPane.offsetWidth + offsetX, 200), window.innerWidth - 400);
+                        leftPane.style.width = `${newWidth}px`;
+                        rightPane.style.flex = `1 1 calc(100% - ${newWidth}px)`;
+                    } else if (isResizingHorizontal) {
+                        const offsetY = e.clientY - lastDownY;
+                        lastDownY = e.clientY;
+                        const editorContainer = document.querySelector('.editor-container');
+                        const newHeight = Math.min(Math.max(editorContainer.offsetHeight + offsetY, 200), window.innerHeight - 200);
+                        editorContainer.style.height = `${newHeight}px`;
                     }
                 });
 
@@ -1407,50 +1698,18 @@
                         isResizingVertical = false;
                         document.body.style.cursor = '';
                         document.body.style.userSelect = '';
-                    }
-                });
-
-                // Horizontal resizer (editor/results split)
-                const horizontalResizer = document.getElementById('horizontalResizer');
-                const editorContainer = document.querySelector('.editor-container');
-                let isResizingHorizontal = false;
-                let startY = 0;
-                let startHeight = 0;
-
-                horizontalResizer.addEventListener('mousedown', (e) => {
-                    isResizingHorizontal = true;
-                    startY = e.clientY;
-                    startHeight = editorContainer.offsetHeight;
-                    document.body.style.cursor = 'row-resize';
-                    document.body.style.userSelect = 'none';
-                });
-
-                document.addEventListener('mousemove', (e) => {
-                    if (!isResizingHorizontal) return;
-                    
-                    const delta = e.clientY - startY;
-                    const newHeight = startHeight + delta;
-                    const minHeight = 200;
-                    const maxHeight = window.innerHeight - 250;
-                    
-                    if (newHeight >= minHeight && newHeight <= maxHeight) {
-                        editorContainer.style.flex = 'none';
-                        editorContainer.style.height = newHeight + 'px';
-                    }
-                });
-
-                document.addEventListener('mouseup', () => {
-                    if (isResizingHorizontal) {
+                    } else if (isResizingHorizontal) {
                         isResizingHorizontal = false;
                         document.body.style.cursor = '';
                         document.body.style.userSelect = '';
                     }
                 });
             }
-        };
+    };
 
-        // Initialize the app
-        app.init();
+    window.app = app;
+
+    document.addEventListener('DOMContentLoaded', () => app.init());
     </script>
 </body>
 </html>
