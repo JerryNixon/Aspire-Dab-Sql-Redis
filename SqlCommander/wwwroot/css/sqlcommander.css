@@ -436,6 +436,31 @@ body {
     color: #ffffff;
 }
 
+#statusConnection {
+    font-weight: 600;
+}
+
+/* Connection status color indicators */
+#statusConnection::before {
+    content: '● ';
+    margin-right: 4px;
+}
+
+/* Default/Disconnected state - yellow/amber */
+body #statusConnection {
+    color: #ffa500;
+}
+
+/* Connected state - green */
+body #statusConnection.connected {
+    color: #4ec9b0;
+}
+
+/* Failed state - red */
+body #statusConnection.failed {
+    color: #f48771;
+}
+
 /* ----------------------------------------------------------------------------
    Modal Dialogs
    ---------------------------------------------------------------------------- */

@@ -255,8 +255,9 @@
                     document.body.classList.remove('light-theme');
                 }
                 
+                // Only update status bar info, but don't mark as connected yet
+                // Connection status will be updated after successful metadata load
                 if (settings.server) {
-                    document.getElementById('statusConnection').textContent = 'Connected';
                     document.getElementById('statusDatabase').textContent = settings.database;
                     document.getElementById('statusUser').textContent = settings.userId;
                     document.title = `sql commander: ${settings.server}/${settings.database}`;
@@ -266,6 +267,7 @@
             async loadMetadata() {
                 const container = document.getElementById('treeContainer');
                 const refreshBtn = document.getElementById('refreshMetadataBtn');
+                const statusElement = document.getElementById('statusConnection');
                 
                 // Show loading state
                 container.innerHTML = '<div class="loading">⏳ Loading metadata...</div>';
@@ -283,6 +285,8 @@
 
                     if (!result.success) {
                         container.innerHTML = `<div class="error">${result.error}</div>`;
+                        statusElement.textContent = 'Failed';
+                        statusElement.className = 'status-value failed';
                         return;
                     }
 
@@ -290,9 +294,15 @@
                     console.log('Metadata loaded, rendering tree...');
                     this.renderTree();
                     console.log('Tree rendered');
+                    
+                    // Update connection status to connected after successful metadata load
+                    statusElement.textContent = 'Connected';
+                    statusElement.className = 'status-value connected';
                 } catch (error) {
                     console.error('Error loading metadata:', error);
                     container.innerHTML = `<div class="error">Failed to load metadata: ${error.message}</div>`;
+                    statusElement.textContent = 'Failed';
+                    statusElement.className = 'status-value failed';
                 } finally {
                     // Restore button state
                     if (refreshBtn) {

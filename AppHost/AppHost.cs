@@ -1,3 +1,5 @@
+using Microsoft.SqlServer.Dac.Deployment;
+
 var builder = DistributedApplication.CreateBuilder(args);
 
 var sql = builder
@@ -15,24 +17,23 @@ var sqlcmd = builder
     .WithUrls(e =>
     {
         e.Urls.First().DisplayText = "SQL Commander";
+        e.Urls.RemoveAt(1);
     })
     .WithParentRelationship(sql)
-    .WaitForCompletion(sqlproj)
     .WithReference(sql);
 
 var redis = builder
     .AddRedis("redis")
-    .WithRedisCommander();
+    .WithRedisCommander()
+    .WithExplicitStart();
 
-var api = builder
+var dab = builder
     .AddDataApiBuilderInternal(name: "dab",
         configPath: "../api/dab-config.json")
-    .WaitForCompletion(sqlproj)
     .WithReference(redis)
     .WithReference(sql);
 
 builder.AddProject<Projects.Web>(name: "web")
-    .WithReference(api.GetEndpoint("http"))
-    .WaitFor(api);
-
-builder.Build().Run();
+    .WithParentRelationship(dab)
+    .WithReference(dab.GetEndpoint("http"))
+    .WaitFor(dab);
