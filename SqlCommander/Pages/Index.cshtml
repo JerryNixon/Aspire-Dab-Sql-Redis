@@ -957,10 +957,13 @@
                         if (type === 'proc') {
                             html += `<button onclick="app.insertExecute('${fullName}', event)">Execute</button>`;
                         } else {
-                            html += `<button onclick="app.insertTopN('${fullName}', event)">Top N</button>`;
+                            html += `<button onclick="app.insertSelect('${fullName}', event)">SELECT</button>`;
+                            html += `<button onclick="app.insertInsert('${fullName}', event)">INSERT</button>`;
+                            html += `<button onclick="app.insertUpdate('${fullName}', event)">UPDATE</button>`;
+                            html += `<button onclick="app.insertDelete('${fullName}', event)">DELETE</button>`;
                         }
-                        html += `<button onclick="app.insertCreate('${fullName}', '${type}', event)">Create</button>
-                                <button onclick="app.insertDrop('${fullName}', '${type}', event)">Drop</button>
+                        html += `<button onclick="app.insertCreate('${fullName}', '${type}', event)">CREATE</button>
+                                <button onclick="app.insertDrop('${fullName}', '${type}', event)">DROP</button>
                                 </span>
                             </div>
                             <div class="tree-children">`;
@@ -1045,14 +1048,86 @@
                 }
             },
 
-            async insertTopN(fullName, event) {
+            async insertSelect(fullName, event) {
                 event.stopPropagation();
                 if (!this.settings.confirmActions || confirm('This will overwrite the current editor content and execute immediately. Continue?')) {
                     const settings = await (await fetch('?handler=Settings')).json();
                     const limit = settings.defaultResultLimit || 100;
-                    this.editor.setValue(`SELECT TOP ${limit} * FROM ${fullName};`);
+                    
+                    // Find the table in metadata to get columns
+                    const [schema, name] = fullName.replace(/[\[\]]/g, '').split('.');
+                    const table = this.metadata.tables.find(t => t.schema === schema && t.name === name) ||
+                                  this.metadata.views.find(v => v.schema === schema && v.name === name);
+                    
+                    let sql = `SELECT TOP ${limit}\n`;
+                    if (table && table.columns && table.columns.length > 0) {
+                        table.columns.forEach((col, i) => {
+                            const comma = i < table.columns.length - 1 ? ',' : '';
+                            sql += `    [${col.name}]${comma}\n`;
+                        });
+                    } else {
+                        sql += `    *\n`;
+                    }
+                    sql += `FROM ${fullName};`;
+                    
+                    this.editor.setValue(sql);
                     // Auto-execute the query
                     await this.executeQuery();
+                }
+            },
+
+            insertInsert(fullName, event) {
+                event.stopPropagation();
+                if (!this.settings.confirmActions || confirm('This will overwrite the current editor content. Continue?')) {
+                    // Find the table in metadata
+                    const [schema, name] = fullName.replace(/[\[\]]/g, '').split('.');
+                    const table = this.metadata.tables.find(t => t.schema === schema && t.name === name) ||
+                                  this.metadata.views.find(v => v.schema === schema && v.name === name);
+                    
+                    if (!table || !table.columns) return;
+
+                    let sql = `INSERT INTO ${fullName} (\n`;
+                    table.columns.forEach((col, i) => {
+                        const comma = i < table.columns.length - 1 ? ',' : '';
+                        sql += `    [${col.name}]${comma}\n`;
+                    });
+                    sql += ')\nVALUES (\n';
+                    table.columns.forEach((col, i) => {
+                        const comma = i < table.columns.length - 1 ? ',' : '';
+                        sql += `    NULL${comma}  -- ${col.displayType}\n`;
+                    });
+                    sql += ');';
+
+                    this.editor.setValue(sql);
+                }
+            },
+
+            insertUpdate(fullName, event) {
+                event.stopPropagation();
+                if (!this.settings.confirmActions || confirm('This will overwrite the current editor content. Continue?')) {
+                    // Find the table in metadata
+                    const [schema, name] = fullName.replace(/[\[\]]/g, '').split('.');
+                    const table = this.metadata.tables.find(t => t.schema === schema && t.name === name) ||
+                                  this.metadata.views.find(v => v.schema === schema && v.name === name);
+                    
+                    if (!table || !table.columns) return;
+
+                    let sql = `UPDATE ${fullName}\nSET\n`;
+                    table.columns.forEach((col, i) => {
+                        const comma = i < table.columns.length - 1 ? ',' : '';
+                        sql += `    [${col.name}] = NULL${comma}  -- ${col.displayType}\n`;
+                    });
+                    sql += 'WHERE 1 = 0;';
+
+                    this.editor.setValue(sql);
+                }
+            },
+
+            insertDelete(fullName, event) {
+                event.stopPropagation();
+                if (!this.settings.confirmActions || confirm('This will overwrite the current editor content. Continue?')) {
+                    const sql = `DELETE FROM ${fullName}\nWHERE 1 = 0;`;
+                    this.editor.setValue(sql);
                 }
             },
 
