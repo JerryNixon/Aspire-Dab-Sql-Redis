@@ -5,15 +5,6 @@
     "connection-string": "@env('ConnectionStrings__db')"
   },
   "runtime": {
-    "cache": {
-      "enabled": false,
-      "level-2": {
-        "enabled": true,
-        "provider": "redis",
-        "partition": "data-api-builder",
-        "connection-string": "@env('ConnectionStrings__redis')"
-      }
-    },
     "rest": {
       "enabled": true,
       "path": "/api",

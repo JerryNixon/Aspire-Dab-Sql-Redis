@@ -7,25 +7,7 @@ namespace Web.Repositories;
 
 public static class CategoryRepository
 {
-    private static readonly TableRepository<Category> apiRepository;
-
-    static CategoryRepository()
-    {
-        var apiPath = GetApiPathFromEnvironment();
-        var repository = new TableRepository<Category>(apiPath);
-        apiRepository = repository.IsAvailableAsync().GetAwaiter().GetResult()
-            ? repository
-            : throw new Exception($"Data API Builder service is not available at [{apiPath}].");
-
-        static Uri GetApiPathFromEnvironment()
-        {
-            var varName = "services__dab__http__0";
-            var baseUri = Environment.GetEnvironmentVariable(varName)
-                ?? throw new Exception($"Environment variable {varName} not found");
-            return Uri.TryCreate(baseUri + "/api/Category", UriKind.Absolute, out var uri) ? uri
-                : throw new Exception($"Environment variable {varName} is not a valid URI");
-        }
-    }
+    private static readonly TableRepository<Category> apiRepository = DabRepositoryFactory.CreateCategoryRepository();
 
     public static async Task<Category[]> GetAsync(CancellationToken token)
     {

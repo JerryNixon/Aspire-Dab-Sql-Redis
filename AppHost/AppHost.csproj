@@ -19,7 +19,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Database\Database.sqlproj" />
-    <ProjectReference Include="..\SqlCommander\SqlCommander.csproj" />
     <ProjectReference Include="..\Web\Web.csproj" />
   </ItemGroup>
 

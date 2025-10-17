@@ -19,7 +19,6 @@
             <div>
                 <h1>Tasks</h1>
             </div>
-            
         </header>
 
         <div class="add-form">
@@ -45,50 +44,49 @@
                     var formId = $"todo-form-{todo.Id}";
                     var categoryName = Model.CategoryLookup.TryGetValue(todo.CategoryId, out var lookupName) ? lookupName : "Unassigned";
                     <div class="item">
-                        <div class="left">
-                            <div class="avatar">T</div>
-                            <div class="details">
+                        <form method="post" id="@formId" class="item-form">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="id" value="@todo.Id" />
+                            <input type="hidden" name="title" value="@todo.Title" />
+                            <input type="hidden" name="isCompleted" value="@(todo.IsCompleted.ToString().ToLower())" />
+                            <input type="hidden" name="categoryId" value="@todo.CategoryId" />
+                            <input type="hidden" name="action" value="" />
+                            <div class="left">
+                                <input type="checkbox" class="toggle-box" aria-label="Toggle completion" @(todo.IsCompleted ? "checked" : "") />
+                                <div class="details">
+                                    @if (Model.EditingId == todo.Id)
+                                    {
+                                        <input type="text" name="title" value="@todo.Title" required class="edit-input" autofocus />
+                                        <select name="categoryId" class="edit-select">
+                                            @foreach (var category in Model.Categories)
+                                            {
+                                                <option value="@category.Id" selected="@(category.Id == todo.CategoryId)">@category.Name</option>
+                                            }
+                                        </select>
+                                    }
+                                    else
+                                    {
+                                        <div class="title">@todo.Title</div>
+                                        <div class="meta">
+                                            <span class="muted">#@todo.Id</span>
+                                            <span class="category-pill">@categoryName</span>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                            <div class="actions">
                                 @if (Model.EditingId == todo.Id)
                                 {
-                                    <input type="text" name="title" value="@todo.Title" required class="edit-input" autofocus form="@formId" />
-                                    <select name="categoryId" class="edit-select" form="@formId">
-                                        @foreach (var category in Model.Categories)
-                                        {
-                                            <option value="@category.Id" selected="@(category.Id == todo.CategoryId)">@category.Name</option>
-                                        }
-                                    </select>
+                                    <a href="#" class="action-link" data-action="Update" title="Save" aria-label="Save">✓</a>
+                                    <a href="#" class="action-link" data-action="CancelEdit" title="Cancel" aria-label="Cancel">✖</a>
                                 }
                                 else
                                 {
-                                    <div class="title">@todo.Title</div>
-                                    <div class="meta">
-                                        <span class="muted">#@todo.Id</span>
-                                        <span class="category-pill">@categoryName</span>
-                                    </div>
+                                    <a href="#" class="action-link" data-action="Edit" title="Edit" aria-label="Edit">✏️</a>
+                                    <a href="#" class="action-link" data-action="Delete" title="Delete" aria-label="Delete" onclick="return confirm('Delete this task?')">🗑️</a>
                                 }
                             </div>
-                        </div>
-
-                        <div class="actions">
-                            <form method="post" id="@formId" style="display:inline-flex;gap:8px;align-items:center">
-                                @Html.AntiForgeryToken()
-                                <input type="hidden" name="id" value="@todo.Id" />
-                                <input type="hidden" name="isCompleted" value="@(todo.IsCompleted.ToString().ToLower())" />
-                                @if (Model.EditingId == todo.Id)
-                                {
-                                    <button type="submit" name="action" value="Update" class="icon-btn primary" title="Save" aria-label="Save">✓</button>
-                                    <button type="submit" name="action" value="CancelEdit" class="icon-btn danger" title="Cancel" aria-label="Cancel">✖</button>
-                                }
-                                else
-                                {
-                                    <input type="hidden" name="title" value="@todo.Title" />
-                                    <input type="hidden" name="categoryId" value="@todo.CategoryId" />
-                                    <button type="submit" name="action" value="Edit" class="icon-btn warn" title="Edit" aria-label="Edit">✏️</button>
-                                    <button type="submit" name="action" value="Toggle" class="icon-btn primary" title="Complete" aria-label="Complete">✓</button>
-                                    <button type="submit" name="action" value="Delete" class="icon-btn danger" title="Delete" aria-label="Delete" onclick="return confirm('Delete this task?')">🗑️</button>
-                                }
-                            </form>
-                        </div>
+                        </form>
                     </div>
                 }
             </div>
@@ -107,27 +105,27 @@
                     var formId = $"todo-form-{todo.Id}";
                     var categoryName = Model.CategoryLookup.TryGetValue(todo.CategoryId, out var lookupName) ? lookupName : "Unassigned";
                     <div class="item">
-                        <div class="left">
-                            <div class="avatar done">✓</div>
-                            <div class="details">
-                                <div class="title completed">@todo.Title</div>
-                                <div class="meta">
-                                    <span class="muted">#@todo.Id</span>
-                                    <span class="category-pill">@categoryName</span>
+                        <form method="post" id="@formId" class="item-form">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="id" value="@todo.Id" />
+                            <input type="hidden" name="title" value="@todo.Title" />
+                            <input type="hidden" name="isCompleted" value="@(todo.IsCompleted.ToString().ToLower())" />
+                            <input type="hidden" name="categoryId" value="@todo.CategoryId" />
+                            <input type="hidden" name="action" value="" />
+                            <div class="left">
+                                <input type="checkbox" class="toggle-box" aria-label="Toggle completion" @(todo.IsCompleted ? "checked" : "") />
+                                <div class="details">
+                                    <div class="title completed">@todo.Title</div>
+                                    <div class="meta">
+                                        <span class="muted">#@todo.Id</span>
+                                        <span class="category-pill">@categoryName</span>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        <div class="actions">
-                            <form method="post" id="@formId" style="display:inline-flex;gap:8px;align-items:center">
-                                @Html.AntiForgeryToken()
-                                <input type="hidden" name="id" value="@todo.Id" />
-                                <input type="hidden" name="title" value="@todo.Title" />
-                                <input type="hidden" name="isCompleted" value="@(todo.IsCompleted.ToString().ToLower())" />
-                                <input type="hidden" name="categoryId" value="@todo.CategoryId" />
-                                <button type="submit" name="action" value="Toggle" class="icon-btn warn" title="Reopen" aria-label="Reopen">↺</button>
-                                <button type="submit" name="action" value="Delete" class="icon-btn danger" title="Delete" aria-label="Delete" onclick="return confirm('Delete this task?')">🗑️</button>
-                            </form>
-                        </div>
+                            <div class="actions">
+                                <a href="#" class="action-link" data-action="Delete" title="Delete" aria-label="Delete" onclick="return confirm('Delete this task?')">🗑️</a>
+                            </div>
+                        </form>
                     </div>
                 }
             </div>
@@ -137,5 +135,27 @@
             <p><em>Nothing completed yet.</em></p>
         }
     </div>
+
+    <script>
+        document.addEventListener('click', function (e) {
+            if (e.target.matches('.action-link')) {
+                e.preventDefault();
+                const link = e.target;
+                const form = link.closest('form');
+                if (!form) return;
+                form.querySelector('input[name=action]').value = link.dataset.action;
+                form.submit();
+            }
+        });
+        document.addEventListener('change', function (e) {
+            if (e.target.matches('.toggle-box')) {
+                const cb = e.target;
+                const form = cb.closest('form');
+                if (!form) return;
+                form.querySelector('input[name=action]').value = 'Toggle';
+                form.submit();
+            }
+        });
+    </script>
 </body>
 </html>

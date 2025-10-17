@@ -20,6 +20,7 @@ public static class Extensions
         .WithUrls(e =>
         {
             var endpoint = e.GetEndpoint("http");
+            e.Urls.Clear();
             e.Urls.Add(new() { Url = "/swagger", DisplayText = "/Swagger", Endpoint = endpoint });
             e.Urls.Add(new() { Url = "/graphql", DisplayText = "/Nitro", Endpoint = endpoint });
             e.Urls.Add(new() { Url = "/health", DisplayText = "/Health", Endpoint = endpoint });

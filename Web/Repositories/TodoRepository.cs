@@ -7,28 +7,17 @@ namespace Web.Repositories;
 
 public static class TodoRepository
 {
-    private static readonly TableRepository<Todo> apiRepository;
-
-    static TodoRepository()
-    {
-        var apiPath = GetApiPathFromEnvironment();
-        var apiRepository = new TableRepository<Todo>(apiPath);
-        TodoRepository.apiRepository = apiRepository.IsAvailableAsync().GetAwaiter().GetResult() ? apiRepository
-            : throw new Exception($"Data API Builder service is not available at [{apiPath}].");
-
-        static Uri GetApiPathFromEnvironment()
-        {
-            var varName = "services__dab__http__0";
-            var baseUri = Environment.GetEnvironmentVariable(varName)
-                ?? throw new Exception($"Environment variable {varName} not found");
-            return Uri.TryCreate(baseUri + "/api/Todo", UriKind.Absolute, out Uri? uri) ? uri
-                : throw new Exception($"Environment variable {varName} is not a valid URI");
-        }
-    }
+    private static readonly TableRepository<Todo> apiRepository = DabRepositoryFactory.CreateTodoRepository();
 
     public static async Task UpdateAsync(Todo todo, CancellationToken token)
     {
-        var updateResult = await apiRepository.PutAsync(todo, cancellationToken: token);
+        var updateResult = await apiRepository.PatchAsync(todo, new PatchOptions()
+        {
+            ExcludeProperties = [
+                nameof(Todo.Id),
+                nameof(Todo.CategoryId)
+            ],
+        }, cancellationToken: token);
         if (!updateResult.Success)
             throw new Exception($"Failed to update: {updateResult.Error?.Message ?? "Unknown error"}");
     }

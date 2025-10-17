@@ -10,10 +10,6 @@
     <ProjectGuid>{5A3116BB-8E25-3451-B02C-292C88DF903F}</ProjectGuid>
   </PropertyGroup>
   <ItemGroup>
-    <Build Include="Tables\Category.sql" />
-    <Build Include="Tables\Todo.sql" />
-  </ItemGroup>
-  <ItemGroup>
     <PostDeploy Include="Script.DataSeed.sql" />
   </ItemGroup>
 </Project>
