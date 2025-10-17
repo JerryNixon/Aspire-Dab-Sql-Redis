@@ -9,7 +9,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Web", "Web\Web.csproj", "{A
 EndProject
 Project("{42EA0DBD-9CF1-443E-919E-BE9C484E4577}") = "Database", "Database\Database.sqlproj", "{5A3116BB-8E25-3451-B02C-292C88DF903F}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Api", "Api", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "data-api-builder", "data-api-builder", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
 	ProjectSection(SolutionItems) = preProject
 		Api\dab-config.json = Api\dab-config.json
 	EndProjectSection

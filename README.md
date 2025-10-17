@@ -1,25 +1,36 @@
+# Data API Builder + .NET Aspire + Razor Pages Sample
 
-## Development notes
+A minimal sample showing how .NET Aspire composes SQL Server + Data API Builder (DAB) + a Razor Pages UI. All connection details (including the SQL connection string) are generated and injected by AppHost; you do not need to manually edit them.
 
-- The `AppHost` project is the entrypoint; it composes service registrations and references using helper extension methods.
-- The `Database` project is a `.sqlproj` and may have build steps that publish schema or artifacts consumed by the Data API Builder.
-- The data API builder (`dab`) reads configuration from `../api/dab-config.json`. Ensure that file exists and contains the expected configuration for endpoints.
+## What is here?
 
-## Troubleshooting
+Project | Purpose
+------- | -------
+`AppHost` | Orchestrates SQL Server, Data API Builder container, and Web project with Aspire.
+`Database` | SQL project (`.sqlproj`) defining schema and seed script.
+`Web` | Razor Pages frontend consuming DAB REST endpoints.
+`api/dab-config.json` | Mounted into the DAB container (provided in repo). No manual connection string changes required.
 
-- Connection errors:
-  - Confirm SQL Server and Redis are reachable at the host/port given in `AppHost/AppHost.cs`.
-  - Verify credentials and network/firewall settings.
-- Missing `dab-config.json`:
-  - Create `api/dab-config.json` or change the path in `AppHost/AppHost.cs`.
-- Build/runtime errors:
-  - Run `dotnet build` for detailed compiler errors.
-  - Inspect host logs printed to the console when running `dotnet run`.
+## Quick start
 
-## Contributing
+Prerequisites:
+- .NET 8 SDK
+- Docker Desktop running
 
-Contributions are welcome. Prefer small, focused pull requests. When changing secrets or default configuration, document the change in this `README.md`.
+Steps:
+1. Run: Hit `F5` or `dotnet run --project AppHost`.
+2. Aspire Workbench opens automatically: inspect resources and use the provided links.
+3. Useful endpoints:
+   - DAB Swagger: `/swagger`
+   - GraphQL (if enabled): `/graphql`
+   - Health: `/health`
+   - Web UI: root of the web project
+
+## Data access pattern
+The Web project uses repositories (`TodoRepository`, `CategoryRepository`) that talk to DAB via `TableRepository<T>` instances produced by `DabRepositoryFactory`. Environment variables (e.g. `services__dab__http__0`) supplied by Aspire give the DAB base URL at runtime.
+
+## UI
+`Pages/Index.cshtml` shows pending vs. completed items. A checkbox toggles completion; icon links handle edit/delete with minimal chrome. `/health` is exposed for quick container readiness checks.
 
 ## License
-
-No license file included. Add a license that suits your needs (e.g., `MIT`) and document it here.
+Add a license of your choice (e.g. MIT) at the root.
